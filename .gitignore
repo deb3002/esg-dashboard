@@ -1,0 +1,9 @@
+# Real source spreadsheet - contains the actual company's real, non-anonymized
+# data. Never commit this; it stays local only. See README.md.
+ESGReport.xls
+
+# Local editor/tooling config, not part of the project itself.
+.claude/
+
+# macOS folder metadata.
+.DS_Store
