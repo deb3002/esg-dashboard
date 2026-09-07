@@ -1,8 +1,33 @@
 # Product Spec — ESG Disclosure Profile Viewer (Tier 1 MVP)
 
+**Revision 11 — 7 Sep 2026.** **IFC narrowed from 141 rows to 49**, after seeing the rendered page. Two exclusions added: GRI 2 and 3 no longer map to PS1 (they were filing contact details under "Assessment and Management of E&S Risks" — 26 admin rows in a 74-row bucket), and IFC is no longer derived from principle-level GRI answers (the Section A union includes GRI 401/405, which put "CIN" under Labour and Working Conditions). The `?` on IFC tags is removed — the label already reads "by GRI alignment" — duplicate keyword pills are hidden, and the tag column widened from 15% to 19%.
+
+**Revision 10 — 7 Sep 2026.** **The table regroups by the selected framework.** Choosing IFC reorganises section headings under Performance Standards PS1–PS8, mirroring how the reference portal presents them; any other selection groups by source category. Headings gain a code chip, full name and disclosure count. Row elements are reused across layouts, so expand state and filter behaviour survive regrouping.
+
+**Revision 9 — 7 Sep 2026.** **IFC returns to the filter on 141 rows, derived by alignment rather than sourced.** IFC's January 2025 benchmarking rates GRI-to-Performance-Standard alignment at series level; chaining BRSR indicator → GRI → IFC produces a claim no single document makes. IFC tags are therefore marked unverified, render hollow, and carry "by GRI alignment" in their label. GRI 200-series is excluded, its alignment being rated weak by the same source. Note: IFC's handbook contains detailed tables (C.3, D.2, E.2) that could not be retrieved — only pages 1–52 of ~80 were readable — so a better mapping may exist.
+
+**Revision 8 — 7 Sep 2026.** BRSR **indicator numbers** added from SEBI's official format — all 149 BRSR rows coded (`P6-E1`, `A18`, `P5-E3`). With indicators known, GRI mapping moves from principle level to **indicator level for 114 rows**; 35 keep the principle-level fallback where the 2022 linkage document has no entry. Indicator codes and GRI disclosures are both shown on the page rather than in tooltips. See **Reporting Frameworks**.
+
+**Revision 7 — 7 Sep 2026.** The GRI mapping is rebuilt on the **published GRI–SEBI BRSR linkage document** (GRI with BSE, 2022) instead of keyword matching. GRI is now applied at BRSR principle level to the 149 BRSR rows, is fully sourced, and the provisional marking and warning banner are removed because nothing is guessed any more. IFC is withdrawn from the filter — no equivalent published linkage exists. Superseded revision 6, which tagged 445 GRI and 324 IFC rows by keyword.
+
+**Revision 5 — 7 Sep 2026.** Trend charts move into scope and are built — see **Trend Charts**. The discontinuity guard is the substantive part: five series are flagged, and the GHG emissions series would otherwise have shown a false twelvefold rise.
+
+**Revision 4 — 7 Sep 2026. Phase 1 is BUILT.** This spec is now a record of what exists as much as a plan. Changes in this revision: the anonymisation decision is settled and specified (see **Anonymisation**); the converter, page, filters, metrics, CSV and print stylesheet are implemented and verified; the Open Questions list is reduced to what is genuinely still open. Items raised in the GTM meeting of 21 Aug 2026 are recorded under **Requested but not built**.
+
 **Revision 3 — 10 Aug 2026.** Adds filtered CSV download and print-to-PDF (see **Export**). These were on the "Left Out" list in revisions 1–2; the owner has moved them into scope. `.xlsx`, Word and PDF-library generation remain out.
 
 **Revision 2 — 10 Aug 2026.** Superseded the original spec, which was written before the real source data was available and assumed ~25 hand-authored sample rows. The real export (`ESGReport.xls`) is far richer and does not have the shape the first version assumed. Sections that changed are marked **[CHANGED]**.
+
+## How to verify a change
+
+```bash
+node tools/test.js          # 107 checks against the real data
+python3 tools/convert.py    # 9 conversion checks; refuses to write on failure
+```
+
+`tools/test.js` runs the shipped `app.js` against the shipped data file via a minimal fake DOM, so it tests the real code path. It covers filter counts, framework provenance, indicator codes, chart geometry, grouping and CSV integrity. It covers **nothing visual** — layout, spacing and overflow need a browser.
+
+Bugs it has caught, all of which looked fine on screen: framework tags leaking onto non-BRSR rows, the CSV export losing the "GRI" prefix, two rows losing their indicator codes to non-breaking spaces, and charts min-max scaling instead of using a zero baseline.
 
 ## Overview
 
@@ -315,6 +340,119 @@ A `@media print` stylesheet must:
 - **No Word export.** The HTML-file-named-`.doc` technique works but can trigger a "file format doesn't match extension" warning in Word, which is not acceptable in front of a client. Revisit only on a specific client request.
 - **No PDF library** (jsPDF, pdfmake or similar). The print stylesheet produces better-paginated output at zero cost.
 
+## Reporting Frameworks **[revised in revision 7]**
+
+A fourth filter, alongside Theme and Keyword. **Frameworks are tags, not a partition** — a row can carry several, which is why they are not additional themes. Themes must continue to partition the 663 rows exactly.
+
+| Framework | Rows | Provenance |
+|---|---|---|
+| BRSR | 149 | `BRSR` keyword in the source export |
+| BRSR Core | 14 | `SEBI: Essential Core` keyword; maps cleanly onto SEBI's nine BRSR Core attributes |
+| GRI | 149 | Published GRI–SEBI BRSR linkage document — 114 at indicator level, 35 at principle level |
+| IFC | 49 | **Derived by alignment**, chained via GRI — not a published mapping |
+
+### IFC — the weakest link in the filter, deliberately marked
+
+Source: IFC, *Elevating ESG Reporting in Emerging Markets* (January 2025) and its companion benchmarking analysis. That work **rates alignment** between IFC Performance Standards and GRI at series level; it is not a crosswalk. The BRSR-to-IFC connection is **chained** — BRSR indicator → GRI disclosure → IFC PS — and no published document asserts the composition.
+
+Consequently IFC tags carry `verified: false` and `level: "alignment"`, render with the hollow dashed styling, and state their derivation in the visible label. Tests assert that no IFC tag claims to be verified, that all 141 declare themselves alignment-derived, and that IFC never appears without a GRI tag to chain from.
+
+`IFC_BY_GRI_SERIES` in `tools/brsr_indicators.py` holds the mapping with the caveats written above it. Three exclusions, each added after seeing the output rather than from theory:
+
+1. **GRI 200-series** — the same source rates its IFC alignment as weak.
+2. **GRI 2 and 3** — align with PS1 in the abstract, but in practice put e-mail, telephone and registered office under a risk-management standard.
+3. **Principle-level GRI answers** — the union of a whole section's standards, which chained to nonsense (Section A includes GRI 401/405, so "CIN" became Labour and Working Conditions).
+
+Tests assert that named admin rows carry no IFC tag and that no IFC tag is derived from a principle-level GRI answer.
+
+**Known gap:** the IFC handbook's Tables C.3, D.2 and E.2 (GRI ↔ IFC PS, pages 65/71/75) could not be retrieved; only pages 1–52 were readable. If those contain a finer mapping, this should be replaced with it and promoted to verified.
+
+### BRSR indicator codes
+
+`tools/brsr_indicators.py` holds two transcriptions, deliberately kept apart:
+
+- `INDICATOR_CODES` — subfactor title to BRSR indicator, from **SEBI's BRSR format, Annexure I to circular SEBI/HO/CFD/CMD-2/P/CIR/2021/562 (10 May 2021)**. The portal's titles follow SEBI's numbered questions in order, so matching is by title and position. All 149 rows are coded.
+- `GRI_BY_INDICATOR` — indicator to GRI disclosures, from the linkage document's summary table.
+
+Nine rows carry `-Core` codes (`P6-Core`, `P5-Core`, `P8-Core`): BRSR Core attributes from SEBI's 2023 circular, postdating the 2021 numbering and the 2022 linkage document.
+
+**Indicator lookup is scoped to BRSR categories.** Subfactor titles are not unique — "Energy Consumption" appears under both Environment and Principle 6 — and an unscoped lookup silently tagged non-BRSR rows. A test asserts no framework tag appears outside the BRSR sections.
+
+Titles containing non-breaking spaces must be normalised before lookup; two rows were silently missing their codes until that was handled.
+
+### The GRI mapping
+
+Source: **"Linking the GRI Standards and the SEBI BRSR Framework"**, GRI with the Bombay Stock Exchange, 2022 — https://www.globalreporting.org/media/ioqnxtmx/sebi_brsb_gri_linkage_doc.pdf
+
+The document maps BRSR requirements to GRI disclosures at **indicator** level (P6-E3 → GRI 303-3, 303-5). The export carries only the principle and whether a row is an Essential or Leadership indicator — not the indicator number. The mapping is therefore applied at **principle level**, the finest granularity the data supports, and each tag carries the GRI standards for that BRSR section plus a `source` field naming the document.
+
+`BRSR_GRI_LINKAGE` in the converter holds the transcription, one entry per BRSR category. Tests assert several entries against the document — Principle 6 must include GRI 302/303/305/306, Principle 9 must include GRI 418 and must not include GRI 305 — so a transcription error fails the build rather than reaching a client.
+
+**No GRI tag is applied outside the BRSR sections.** The linkage document does not cover them.
+
+### Why the provisional marking is gone
+
+Revision 6 tagged 445 GRI and 324 IFC rows by keyword matching and marked them provisional on screen. That marking existed because the mapping was guesswork. Rebuilding on the linkage document removed the guesswork, so the marking, the dropdown suffix and the warning banner were all removed. **The `verified` flag remains in the data**: a future reviewed mapping could reintroduce unverified tags, and the hollow pill styling is still there to render them.
+
+### Refining further
+
+Two routes, both narrowing the mapping rather than broadening it:
+
+1. **Indicator-level precision.** Match each of the 149 BRSR rows to its specific BRSR indicator number, then read the GRI disclosure straight off the linkage document. Judgment moves to identifying the indicator, which is far more constrained than judging GRI relevance.
+2. **Beyond BRSR.** The other 514 rows need mapping by hand. `ESG-Framework-Mapping.xlsx` is the worksheet; returning it as `framework-mapping.csv` overrides the linkage-derived tags.
+
+**Unresolved:** GRI licensing for commercial use in software, and whether IFC Performance Standards are meaningful for a company with no IFC financing.
+
+## Trend Charts **[NEW in revision 5 — 7 Sep 2026]**
+
+Metric labels carry the measure, the year and the unit (`GHG Emission 2026 (tCO2e)`). The converter splits them and groups them into series. **45 series exist: 32 with three or more years, 13 with two.**
+
+**Series are built in the converter, not the browser.** Parsing belongs where it can be verified and reported on; the page only draws what it is handed. Each row gains `series` (multi-year) and `standalone` (single values, targets, counts). `metrics` is left untouched so the CSV export is unaffected.
+
+**Rules:**
+
+- **Three or more years → a column chart.** Columns, not a line: three annual disclosures are three separate figures, and a line implies values between them that were never reported.
+- **Two years → a change statement**, e.g. "33.3% in 2026, down from 85.71% in 2025". Two points carry no more information than the two numbers.
+- **The baseline is always zero.** A truncated axis exaggerates change; this is the most common way a chart misleads.
+- **Exact values are printed beneath every chart.** Nothing is readable by eye alone, and no precision is lost.
+- Rendering is hand-drawn inline SVG. **No charting library** — a CDN link would break the offline double-click demo.
+
+### Discontinuity flagging — the part that matters
+
+Any year-on-year ratio of **3× or more** marks a series as discontinuous. A jump that large is usually a change in what was counted, not in what happened.
+
+**Five series are currently flagged**, and one is the reason this rule exists:
+
+> **Amount of GHG Emissions** — 2024: 1,072,290.39 · 2025: 13,125,143.81 · 2026: 14,629,136.19 tCO2e.
+> Charted naively this reads as a twelvefold rise in emissions. It is not. The 2026 and 2025 totals reconcile **exactly** to Scope 1 + 2 + 3; 2024 has **no scope breakdown disclosed at all** and almost certainly excludes Scope 3, which alone was 13,076,508.88 in 2025. The boundary widened; the emissions did not.
+
+Flagged series are still charted — the owner's decision on 7 Sep 2026 — but the marking is deliberately hard to miss:
+
+- bars before the break are drawn **hollow with a dashed outline**, so they read as not comparable;
+- a **dashed vertical rule** marks the break;
+- a **caption sits under the chart**, not in a tooltip, because tooltips are never seen in a live demo;
+- the whole block switches to a warning colour.
+
+`SERIES_NOTES` in the converter holds specific captions where the cause is established; everything else gets a generic "reporting basis may differ" caption and appears on the review list printed on every run. **Four of the five flagged series still have the generic caption and need investigating.**
+
+## Anonymisation **[NEW in revision 4 — decision settled 7 Sep 2026]**
+
+The demo does **not** carry the real company name. `tools/convert.py` produces an anonymised build by default; `--real` produces the unmodified one.
+
+**What is replaced:** company name and abbreviation throughout all narrative text; the 16 board members' names, mapped to stable placeholders `Director A` … `Director P`; every document link's destination URL; CIN, registered address, telephone numbers, email and social handles; named third-party organisations appearing in biographies; sector-identifying terms.
+
+**What is withheld entirely:** the narrative text of all 16 `Board of Directors` rows, replaced with a short note. Those biographies name previous employers, universities, other board seats and industry bodies — a combination that identifies the individual in a single search, and through them the company. Pattern replacement cannot reliably catch it, so the text is removed rather than filtered.
+
+**What is deliberately untouched:** every reported figure. Emissions, water, energy and headcount values are exactly as published. Altering them would breach the project's ground rule against modifying real reported data.
+
+**Residual risk — state this plainly to anyone who asks.** The build is *de-branded, not anonymous*:
+
+- the figures are real and published, so they can be matched back to the filed report;
+- the sector remains legible from the narrative;
+- the converter prints a **residual review list** of proper nouns it was never told about (award names, industry bodies, subsidiaries) on every run, and that list requires human review.
+
+Anyone extending the converter must keep two behaviours: **nothing is written when a check fails or the leak scan finds something**, and the residual list is printed every run.
+
 ## Data Source
 
 | Element | Source | Format | Access | Update Frequency |
@@ -374,17 +512,32 @@ Do not build any of the following, even if it looks like an obvious improvement:
 - **The remaining reference-page dropdowns:** asset manager, global framework, ESG ratings, industry lens, BRSR filter.
 - **`.xlsx`, `.doc` or `.docx` file generation, and any PDF library.** CSV download and print-to-PDF are now in scope — see the Export section. Nothing beyond those two.
 - **Profile / DocuLink / Factsheet view toggles.**
-- **Charts or trend graphs from the metrics.** The numbers display as values only. Several rows carry three years of the same measure and are begging to be charted — that is a deliberate later decision, not this build.
+- ~~Charts or trend graphs from the metrics.~~ **Moved into scope 7 Sep 2026 — see Trend Charts below.**
 - **Multiple companies** or any company selector.
 - **View counters, chat widgets, feedback forms.**
 - **Accounts, logins, roles, payments, databases, server-side logic.**
 - **Multi-page navigation or routing.**
 - **localStorage or any persistence.** Filter state resets on reload.
 
-## Open Questions for Claude Code
+## Requested but not built **[NEW in revision 4]**
 
-1. **Real company data — confirm before building.** This export is Escorts Kubota's genuine published data under their own name, including real emissions figures and links to their annual report PDFs. Ask the owner whether the demo should carry the real company name and links, or be anonymised to a placeholder name with links stripped. **Do not assume.** If anonymising, the converter needs a flag for it and the highlights text also names individuals and the company throughout — a name swap alone will not anonymise it.
-2. **`updated` date.** The reference site shows `17 Jul 2026`; the export itself carries no date field. Confirm the value or read it from the file's modification date, and note the choice in the README.
-3. **Theme names** are proposed, not fixed. If the owner prefers different labels or a different split, that is a one-line change in the converter's mapping — but the six-theme structure and the row counts must still reconcile to 663.
-4. **Accent colour** is unspecified. Pick a sensible default, define it as `--accent`, note the choice in the README rather than asking.
-5. If any instruction here conflicts with something the owner says mid-build, **the owner wins** — but flag the conflict against the Left Out list first, since that list is the scope boundary.
+Raised in the GTM meeting of 21 Aug 2026. Recorded so nothing is lost and nothing is built by accident.
+
+| Request | Position |
+|---|---|
+| Trend lines across indicators | **Data is ready — 40 rows already carry the same measure across two or three years.** Charts remain on the Left Out list; building them is a scope decision, not a data problem. Hand-drawn SVG would keep the zero-dependency rule intact. The "24 indicators" referred to in the meeting have not been identified — the file has 96 rows carrying figures. |
+| Company screener (share price, market cap, listings) | **Mostly already present.** The `Corporate Information` category carries listing stock exchange, paid-up capital, employee count, incorporation year, financial year end, address and business activities. Missing: market cap and share price. **Live share price is out** — it needs an API, credentials and a server, and breaks the double-click demo. Under the agreed annual update cadence a share price would be stale and misleading; market cap as a dated annual snapshot is acceptable. |
+| ESG ratings (CRISIL, EcoVadis and others) | **Eleven already present** in the `Ratings and Indices` category — CRISIL ESG, CRISIL Credit, Sustainalytics, S&P Global, LSEG, CSR Hub, NSE, ICRA, ESGRisk.ai, SES, IiAS. These are safe because the company disclosed them itself. **EcoVadis is different**: scorecards are confidential by default, shared only with authorised partners, and public sharing depends on subscription tier and a 12-month validity window. Displayable only with the company's active permission and an in-date scorecard. |
+| Framework tagging (CDP, GRI, EU Taxonomy, IFC) | **Technically trivial, commercially not.** The filter mechanism is identical to the existing keyword filter. The work is mapping 663 rows to each framework — professional judgment, not build effort. **GRI licensing must be settled first**: reproduction for preparing a report is permitted, but commercial use of GRI content in software and tools goes through GRI's licensing programme. CDP, EU Taxonomy and IFC terms have not been checked. |
+| Annual update cadence | **Already how the system works.** The converter runs when a new export arrives; nothing fetches live data. No work required. |
+| Both hosting options | **Already true.** The folder opens by double-click and also works on any static host unchanged. No work required. |
+
+## Open Questions
+
+1. **The E/S/G filter mapping needs the owner's sign-off.** The source file has no Environmental/Social/Governance column. A rule-based classification reaches 84% coverage — 356 rows from the category name, 111 from BRSR principle mapping, 38 from BRSR Sections A and B, 53 from keywords — giving roughly E 120 / S 212 / G 226, with **105 rows that are genuinely none of the three** (Profile Sources, Corporate Information, Materiality Assessment, Verification, Ratings, Awards, Memberships, ISO certificates). Two decisions: how those 105 are presented, and whether the owner accepts the judgment calls, notably BRSR Principle 2 under Environmental and Supply Chain under Social. **Do not build this filter until the mapping is signed off** — a client may ask the owner to defend any given row's classification.
+2. **Residual proper nouns.** The converter's review list currently holds around 30 entries. The owner should mark which are identifying; they then go into `THIRD_PARTY_ORGS` or `LITERALS`.
+3. **`updated` date** is `17 Jul 2026`, carried from the reference page because the export has no date field. Replace when a better source exists.
+4. **Number grouping** currently uses international thousands separators (14,629,136.19). If the audience is primarily domestic, Indian grouping (1,46,29,136.19) may read better. One-line change.
+5. **Visual verification is outstanding.** Filter logic, search and CSV export are tested against the real 663 rows. The rendered page has not been checked in a browser. The sticky filter bar's offset above the sticky table header is the most likely thing to be wrong.
+
+If any instruction here conflicts with something the owner says, **the owner wins** — but flag the conflict against the Left Out list first, since that list is the scope boundary.

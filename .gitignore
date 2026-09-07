@@ -1,9 +1,15 @@
-# Real source spreadsheet - contains the actual company's real, non-anonymized
-# data. Never commit this; it stays local only. See README.md.
-ESGReport.xls
+# Python bytecode from tools/convert.py — regenerated on every run
+__pycache__/
+*.pyc
 
-# Local editor/tooling config, not part of the project itself.
+# macOS folder metadata
+.DS_Store
+
+# Local editor / agent settings, not part of the project
 .claude/
 
-# macOS folder metadata.
-.DS_Store
+# The un-anonymised source export: real company name, CIN, contact details
+# and director biographies. Kept out of version control by default — see
+# README. Remove this line only if the repository is private and you have
+# decided that is acceptable.
+ESGReport.xls

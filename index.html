@@ -1,81 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ESG Profile</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<div class="page">
+<a class="skip-link" href="#disclosures">Skip to disclosures</a>
 
-  <header class="header">
-    <h1 id="company-name" class="company-name">&nbsp;</h1>
+<header class="page-header">
+  <div class="wrap">
+    <h1 id="company-name">ESG Profile</h1>
     <p class="subtitle">ESG Profile</p>
     <p class="meta" id="updated-line"></p>
-  </header>
+  </div>
+</header>
 
-  <p id="print-summary" class="print-summary"></p>
-
-  <div class="filter-bar">
+<div class="filter-bar">
+  <div class="wrap">
     <div class="filter-row">
-      <div class="filter-controls">
-        <div class="filter-field">
-          <label for="theme-select" class="visually-hidden">Filter by theme</label>
-          <select id="theme-select">
-            <option value="All Themes">All Themes</option>
-          </select>
-        </div>
 
-        <div class="filter-field">
-          <label for="keyword-select" class="visually-hidden">Filter by keyword</label>
-          <select id="keyword-select">
-            <option value="All Keywords">All Keywords</option>
-          </select>
-        </div>
+      <div class="field">
+        <label for="theme-select">Theme</label>
+        <select id="theme-select">
+          <option>All Themes</option>
+        </select>
+      </div>
 
-        <div class="filter-field search-field">
-          <label for="search-input" class="visually-hidden">Search disclosures</label>
-          <input type="text" id="search-input" placeholder="Search disclosures&hellip;" autocomplete="off">
-          <button type="button" id="clear-search" class="clear-btn" aria-label="Clear search" hidden>&times;</button>
+      <div class="field">
+        <label for="keyword-select">Keyword</label>
+        <select id="keyword-select">
+          <option>All Keywords</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="framework-select">Framework</label>
+        <select id="framework-select">
+          <option>All Frameworks</option>
+        </select>
+      </div>
+
+      <div class="field field-search">
+        <label for="search-input">Search</label>
+        <div class="search-wrap">
+          <input type="search" id="search-input" placeholder="Search disclosures&hellip;"
+                 autocomplete="off" spellcheck="false">
+          <button type="button" id="clear-search" class="clear-search"
+                  aria-label="Clear search" hidden>&times;</button>
         </div>
       </div>
 
-      <div class="export-actions">
-        <button type="button" id="download-csv-btn" class="secondary-btn">Download CSV</button>
-        <button type="button" id="print-btn" class="secondary-btn">Print / PDF</button>
+      <div class="field field-actions">
+        <span class="field-spacer" aria-hidden="true"></span>
+        <div class="actions">
+          <button type="button" id="download-csv-btn" class="btn">Download CSV</button>
+          <button type="button" id="print-btn" class="btn">Print / PDF</button>
+        </div>
       </div>
+
     </div>
-
-    <p id="visible-count" class="visible-count" aria-live="polite"></p>
+    <p class="count-line" id="visible-count" aria-live="polite"></p>
   </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th scope="col" class="col-subfactor">Sub Factor</th>
-          <th scope="col" class="col-keywords">Keywords</th>
-          <th scope="col" class="col-documents">Documents</th>
-          <th scope="col" class="col-highlights">Highlights</th>
-        </tr>
-      </thead>
-      <tbody id="table-body">
-      </tbody>
-    </table>
-
-    <div id="empty-state" class="empty-state" hidden>
-      <p>No disclosures match your filters.</p>
-      <button type="button" id="clear-filters-btn" class="text-btn">Clear filters</button>
-    </div>
-  </div>
-
-  <footer class="footer">
-    <p>Demo &mdash; data shown is illustrative.</p>
-  </footer>
-
 </div>
+
+<main class="wrap" id="disclosures">
+
+  <p class="print-summary" id="print-summary"></p>
+
+  <table class="disclosure-table" id="disclosure-table">
+    <thead>
+      <tr>
+        <th scope="col" class="col-subfactor">Sub Factor</th>
+        <th scope="col" class="col-keywords">Keywords</th>
+        <th scope="col" class="col-documents">Documents</th>
+        <th scope="col" class="col-highlights">Highlights</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+  </table>
+
+  <div class="empty-state" id="empty-state" hidden>
+    <p>No disclosures match your filters.</p>
+    <button type="button" id="clear-filters-btn" class="link-btn">Clear filters</button>
+  </div>
+
+</main>
+
+<footer class="page-footer">
+  <div class="wrap">
+    <p id="footer-note">Demonstration build &mdash; company name, people and document
+      links have been replaced. Reported figures are unchanged.</p>
+  </div>
+</footer>
 
 <script src="data/disclosures.js"></script>
 <script src="app.js"></script>

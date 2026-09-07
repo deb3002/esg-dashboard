@@ -1,74 +1,219 @@
 # ESG Disclosure Profile Viewer
 
-A single-page viewer for one company's ESG (Environmental, Social, Governance) disclosures, shown as a filterable, searchable table instead of a long PDF report.
+A single-page viewer for one company's ESG (Environmental, Social, Governance) disclosures, shown as a filterable, searchable table instead of a 300-page PDF.
 
 ## How to open it
 
-Double-click **`index.html`**. It opens directly in your browser — no install, no server, no internet connection needed. Safe for a live demo: nothing on the page makes network calls or saves anything.
+Double-click **`index.html`**. It opens in your browser — no install, no server, no internet needed. Safe for a live demo: nothing on the page makes network calls or saves anything.
+
+## Checking it still works
+
+Two commands, from a Terminal opened in this folder:
+
+```bash
+node tools/test.js          # 107 automated checks — should end "ALL CHECKS PASSED"
+python3 tools/convert.py    # rebuilds the data file and prints its own checks
+```
+
+The first loads the real page code and the real data and checks the filters, the framework mappings, the trend charts and the CSV export all behave. It catches the kind of silent breakage you would never see by looking — rows quietly vanishing, or the export losing a column.
+
+**It does not check how anything looks.** Layout and appearance still need you to open the page.
 
 ## What's on the page
 
-- **Two dropdowns** — filter by Theme (six broad groupings) and by Keyword (recalculates its list and counts to match whichever theme is selected).
-- **Search box** — filters as you type, across the disclosure name, category, keywords, metric labels, and the narrative text.
-- All three combine together — a row shows only if it matches all of them.
-- **Download CSV** — exports whatever rows are currently visible under your filters, as a spreadsheet file.
-- **Print / PDF** — opens your browser's print dialog with a layout built for printing (unclamped text, repeating table header, one page-friendly summary line at the top showing which filters were active).
+- **Theme dropdown** — six broad groupings covering all 663 disclosures.
+- **Keyword dropdown** — 84 tags. Its list and counts rebuild to match whichever theme is selected, so it only ever offers keywords that will actually return rows.
+- **Search box** — filters as you type, across the disclosure name, category, keywords, metric labels and the narrative text.
+- All three combine — a row shows only if it matches all of them.
+- **Download CSV** — exports whatever rows are currently visible under your filters.
+- **Print / PDF** — opens your browser's print dialogue with a print-specific layout: full narrative text (not truncated), table header repeated on each page, and a line at the top recording which filters were active.
 
-## The data: this is a real report, anonymized
+Long narrative text is shortened to about four lines with a **Show more** link. Rows with reported figures show them above the text.
 
-The underlying content came from a real spreadsheet export (`ESGReport.xls`, 663 disclosure rows) from a real company's ESG portal. On 10 Aug 2026, the decision was made **not** to show the real company name in this demo. The conversion script (`tools/convert.py`) replaces:
+## The Framework filter
 
-- The company's name and its abbreviation, wherever they appear — including inside the narrative paragraphs, not just the header.
-- All 16 real board members' names, replaced with their role instead (e.g. "an Independent Director") — since a name swap alone wouldn't anonymize a bio that also names the person's other companies, universities, or career history.
-- Every document link's real URL, set to blank — so the Documents column shows plain labels instead of clickable links.
+A fourth dropdown filters by reporting framework. Three of the four are sourced directly. IFC is derived, and marked as such.
 
-**What this does not do:** this is mechanical text substitution across free-form paragraphs, not a guarantee that every identifying detail is gone. Two things worth knowing before this goes in front of anyone outside your own team:
+| Framework | Rows | Where it comes from |
+|---|---|---|
+| BRSR | 149 | Tagged in the source export by the ESG portal |
+| BRSR Core | 14 | The portal's `SEBI: Essential Core` keyword |
+| GRI | 149 | The published GRI–SEBI BRSR linkage document |
+| IFC | 49 | **Derived by alignment** via GRI — weaker than the rest, see below |
 
-1. **The financial and environmental figures themselves are untouched and real** — e.g. the exact GHG emissions numbers. That's intentional (never invent or alter a real number — see the ground rules in `CLAUDE.md`), but it means someone who already knows the real company's published figures could still match this demo back to them by the numbers alone.
-2. **The 16 board-member biography rows are the richest in personal detail** — they mention specific universities, other companies led or founded, and career histories that go beyond just the person's name. The script strips the names and the most obvious identifying phrases it was told about, but a thorough scrub of every biographical detail in free text isn't something that can be fully guaranteed by search-and-replace. If you plan to show the **Board of Directors** category specifically to someone outside your team, it's worth a quick read-through of those 16 rows first.
+### BRSR indicator numbers
 
-If the decision changes later and the real company name should be restored, that's a one-line flag in `tools/convert.py` (`ANONYMIZE = False`) — re-confirm the decision before flipping it, since it's a reputational call, not a technical one.
+Every BRSR row now carries its **indicator number** from SEBI's official format — `P6-E1`, `P5-E3`, `A18` — shown on the page beside the tag, along with the principle and whether it is an Essential or Leadership indicator. A Principle 6 energy row reads:
 
-## How to re-run the conversion when a new export arrives
+> **BRSR**  P6-E1 · Principle 6 · Essential (Core)
+> **GRI**  302-1-a, 302-1-b, 302-1-c-i, 302-1-e, 302-3-a
 
-If you get a new `ESGReport.xls`, replace the file in this folder and run:
+Source: SEBI's BRSR format, Annexure I to circular SEBI/HO/CFD/CMD-2/P/CIR/2021/562 (10 May 2021). Your portal's row titles follow SEBI's numbered questions in the same order, so each row was matched to its indicator by title and position. **All 149 BRSR rows are coded.**
+
+Nine rows carry a `-Core` code instead (`P6-Core`, `P5-Core`). These are the BRSR Core attributes introduced by SEBI's 2023 circular, which came after the numbering in the 2021 format.
+
+### How the GRI mapping works
+
+It comes from **"Linking the GRI Standards and the SEBI BRSR Framework"** (GRI with the Bombay Stock Exchange, 2022) — the official cross-reference between the two frameworks.
+
+That document maps at **indicator** level, so now that every row has an indicator number, most rows get a precise GRI answer:
+
+| Mapping level | Rows | What you see |
+|---|---|---|
+| Indicator | 114 | The exact GRI disclosures for that indicator, e.g. `303-3-a-i-v, 303-5-a` for water usage |
+| Principle | 35 | All GRI standards linked to that BRSR principle |
+
+The 35 principle-level rows are ones the 2022 linkage document has no entry for — mostly the BRSR Core attributes added in 2023, and a few indicators it marks "no direct linkage". They keep the coarser answer rather than being given a precise-looking guess. Each tag shows which level it used.
+
+### IFC — read this before quoting it
+
+IFC tags are **weaker than the BRSR and GRI ones**, and the page shows that: they render hollow with a dashed outline, and each one reads `PS3 · by GRI alignment` rather than just `PS3`.
+
+Three things you should be able to say if a client asks:
+
+1. **There is no published BRSR-to-IFC mapping.** What exists is IFC's January 2025 benchmarking work, which *rates alignment* between the IFC Performance Standards and GRI at series level — "IFC PSs have strong alignment with some Environment (GRI 300s) and Social (GRI 400s) topics". It is an assessment, not a crosswalk.
+2. **The link is chained.** BRSR indicator → GRI disclosure → IFC Performance Standard. The first hop is official, the second is an alignment rating, and the join between them is our inference. No single document asserts that a given BRSR indicator maps to a given Performance Standard.
+3. **It is deliberately narrow — 49 rows of 149.** Three exclusions, each because including them produced results that read as nonsense:
+   - **GRI 200-series (economic performance)** — the same IFC source rates its alignment as weak.
+   - **GRI 2 and 3 (general disclosures, material topics)** — mapping these to PS1 filed the company's e-mail address, telephone number and registered office under "Assessment and Management of Environmental and Social Risks". 26 admin rows in a 74-row bucket.
+   - **Rows whose GRI answer is principle-level rather than indicator-level** — a principle-level answer is the union of every standard linked to that whole BRSR section, so chaining it put "CIN" and "Paid-up Capital" under Labour and Working Conditions.
+
+What it does map: GRI 301/302/303/305/306 → **PS3** (Resource Efficiency and Pollution Prevention) · GRI 304 → **PS6** (Biodiversity) · GRI 401–409 → **PS2** (Labor and Working Conditions) · GRI 410 and 413 → **PS4** (Community Health, Safety and Security) · GRI 411 → **PS7** (Indigenous Peoples) · GRI 308 and 414 → **PS1** (supplier assessment, genuinely risk management).
+
+Current spread: PS1 8 · PS2 17 · PS3 17 · PS4 5 · PS6 2.
+
+Still worth settling: the IFC Performance Standards apply to IFC-financed projects, so if a client has no IFC involvement the tag may not mean much to them.
+
+### Choosing a framework regroups the table
+
+Select **IFC** and the table's section headings change from the source spreadsheet's categories to the **IFC Performance Standards** — PS1 through PS8 — the way IFC itself organises them. Select anything else and it groups by the original category.
+
+Each heading carries three things: a code chip (`PS 3`, or `P6` for a BRSR principle), the full name, and a count of disclosures in that group.
+
+Nine rows map to more than one Performance Standard. They're grouped under the first, and the row's own tag still shows the full list, so nothing is hidden by the grouping.
+
+### Adding your own mappings
+
+Fill in `ESG-Framework-Mapping.xlsx`, save the Mapping sheet as **`framework-mapping.csv`** in this folder with columns `Sub Factor`, `GRI`, `IFC`, and re-run the converter. Your answers override the linkage-derived ones. Write `None` for a row that maps to nothing.
+
+**Still unresolved:** GRI licensing for commercial use in software goes through GRI's licensing programme. Referencing the linkage document is one thing; shipping it inside a product you charge for is another. Settle it before you sell this.
+
+## Trend charts
+
+Where a figure was reported for **three or more years**, a small column chart appears with the exact values printed underneath. Where only **two years** exist, you get a change statement instead — "33.3% in 2026, down from 85.71% in 2025" — because two points aren't a trend.
+
+Columns rather than a line: three annual disclosures are three separate figures, and a line would imply values in between that were never reported. The baseline is always zero, so nothing is visually exaggerated.
+
+### The orange warning on some charts
+
+Some charts have an orange border, a dashed vertical line, hollow bars on the left, and a caption. That means a figure jumped by 3× or more between two years — which usually means **the basis of reporting changed, not the underlying number.**
+
+The clearest example is GHG emissions: 1,072,290 in 2024, then 13,125,144 in 2025. That looks like emissions exploded. They didn't — the 2025 and 2026 totals include Scope 3 emissions and the 2024 figure doesn't. Scope 3 alone was over 13 million tonnes. The company started counting more, it didn't start emitting more.
+
+**Five series are currently flagged. Only one has a verified explanation.** The other four — business travel, hazardous waste, e-waste, harassment complaints — carry a generic caption and need checking against the source report. Some are probably genuine changes; a falling harassment complaint count is good news, not an artefact. Once you know the cause, add the explanation to `SERIES_NOTES` near the top of `tools/convert.py` and it appears under that chart.
+
+The converter lists every flagged series each time it runs, so this can't quietly drift.
+
+## The data: real report, anonymised
+
+The content comes from `ESGReport.xls` — 663 disclosure rows exported from a real company's ESG portal. On 10 Aug 2026 you decided this demo should **not** carry the real company name.
+
+`tools/convert.py` replaces:
+
+- The company name and its abbreviation everywhere they appear, including inside narrative paragraphs — not just the header.
+- The 16 board members' names, with neutral placeholders (**Director A** through **Director P**), applied consistently so the same person is the same placeholder throughout.
+- **The entire biography text for the Board of Directors rows.** Those 16 rows are replaced with a short note saying the biography is withheld in this build. See below for why.
+- Every document link's destination URL, so the Documents column shows plain labels rather than links.
+- Contact details, the CIN, the registered address, phone numbers and social media handles.
+- Other companies named in director biographies, and sector-specific terms that would identify the business.
+
+### What this does not do — read before showing anyone outside your team
+
+This is **de-branded, not anonymous.** Three specific limits:
+
+1. **The figures are real and unchanged.** The exact GHG emissions, water and energy numbers are untouched — deliberately, because inventing or altering a real reported figure is a line this project doesn't cross. But those figures are published in the company's filed report, so anyone who has them can match this demo back to the source.
+2. **Director biographies were the biggest leak, which is why they're removed entirely.** A bio that names previous employers, universities, other board seats and industry bodies identifies the person in one search, and the person identifies the company. Search-and-replace cannot reliably catch that combination, so the text is withheld rather than filtered.
+3. **The sector still shows through.** The narrative refers to farmers, machinery and construction equipment. The obvious phrases are genericised, but the kind of business is legible.
+
+Every time the converter runs it prints a **residual review list** — proper nouns it found but was never told to replace, such as award names, industry associations and subsidiaries. Read that list. Anything on it that you consider identifying should be added to `THIRD_PARTY_ORGS` or `LITERALS` near the top of `tools/convert.py`.
+
+### To use the real company name instead
+
+```bash
+python3 tools/convert.py --real
+```
+
+This restores the real name, the people and the working document links. It's a reputational decision, not a technical one — re-confirm it before running.
+
+## Re-running the conversion when a new export arrives
+
+Replace `ESGReport.xls` in this folder and run:
 
 ```bash
 python3 tools/convert.py
 ```
 
-This requires a small one-time tool called `xlrd` (a free Python library that reads the older Excel file format) to already be installed. If it's not, install it once with:
+**What it needs:** `openpyxl` (a free Python library that reads Excel files) and **LibreOffice**. LibreOffice is needed because `.xls` is the older Excel format, and it's also the only route that preserves the 912 document hyperlinks — the web addresses live separately from the visible text in the cell, and the simpler libraries drop them.
+
+If `openpyxl` isn't installed:
 
 ```bash
-python3 -m pip install --user xlrd
+python3 -m pip install --user openpyxl
 ```
 
-This only runs on your computer to regenerate the data file — it never ships with the actual page, and the page itself still has zero installed dependencies.
+Both run only on your computer to regenerate the data file. Neither ships with the page — the page itself still has **zero** dependencies.
 
-The script prints a checklist as it runs — row counts, category totals, link counts, keyword counts — so you can see at a glance whether the new export converted cleanly. **If any check fails, it stops and does not overwrite the data file**, rather than silently shipping something wrong.
+### What it prints, and what to look for
 
-**Important:** the 28 real-world categories in the spreadsheet (things like "Board of Directors" or "BRSR Section C: Principle 4") are mapped to 6 broader themes inside the script. If a future export introduces a brand-new category name that isn't in that mapping, the script will **stop with an error** rather than guess — so you'll never end up with rows silently missing from the page. If that happens, the fix is adding one line to the `CATEGORY_TO_THEME` mapping near the top of `tools/convert.py`.
+The script runs eight checks — row count, missing fields, unmapped categories, theme totals, link count, rows carrying figures, orphaned metrics, keyword count — and prints each with the expected number beside it.
 
-## Field reference (for anyone editing the converter's mapping)
+**If any check fails, it stops and leaves the existing data file untouched.** That's deliberate: a data file that's quietly missing forty rows looks completely normal on screen, and you would have no way to spot it. A conversion that refuses to finish is a problem you can see; one that silently drops rows is a problem a client finds.
 
-`data/disclosures.js` is **generated, not written by hand** — never edit it directly, since your changes would be overwritten the next time the converter runs. If something in it looks wrong, the fix belongs in `tools/convert.py`.
+The same applies to anonymisation — if the leak scan finds something, nothing is written.
+
+### If a new export adds a category
+
+The 28 categories in the spreadsheet (things like "Board of Directors" or "BRSR Section C: Principle 4") map to 6 broader themes inside the script. If a future export introduces a category name the script doesn't recognise, it **stops with an error** rather than guessing, so rows can never silently vanish from the page. The fix is one line added to `THEME_MAP` near the top of `tools/convert.py`.
+
+## Field reference
+
+`data/disclosures.js` is **generated, never edited by hand** — anything you change there is overwritten next time the converter runs. If something in it looks wrong, fix `tools/convert.py` and re-run.
 
 | Field | What it is |
 |---|---|
-| `theme` | One of the six broad groupings shown in the Theme dropdown |
-| `category` | The original, more specific grouping from the source file (shown as the table's section headings) |
+| `theme` | One of the six broad groupings in the Theme dropdown |
+| `category` | The original, more specific grouping from the source file — shown as the table's section headings |
 | `subfactor` | The short name of the individual disclosure |
-| `keywords` | Tags shown as pill labels and used to build the Keyword dropdown |
-| `documents` | Links shown in the Documents column — `url` is blank in this anonymized build |
-| `metrics` | Value + label pairs shown as stat blocks above the narrative (only on rows that have them) |
-| `highlights` | The full narrative text for that disclosure |
+| `keywords` | Tags shown as pill labels, and the source of the Keyword dropdown |
+| `documents` | Links in the Documents column. `url` is blank in the anonymised build |
+| `metrics` | Value and label pairs shown as blocks above the narrative, on the 96 rows that have them |
+| `highlights` | The full narrative text |
+
+## What each file is
+
+| File | What it is |
+|---|---|
+| `index.html`, `styles.css`, `app.js` | The page itself. No libraries, nothing to install. |
+| `data/disclosures.js` | **Generated.** Never edit by hand — fix the converter and re-run. |
+| `tools/convert.py` | Turns `ESGReport.xls` into the data file. Runs on your machine only. |
+| `tools/brsr_indicators.py` | The BRSR, GRI and IFC mapping tables, each with its source named. |
+| `tools/test.js` | The 107 checks. |
+| `ESGReport.xls` | The source export. Deliberately **not** in version control — it carries the real company name, CIN, contact details and director biographies. |
+| `product-spec.md` | What was built and why, with every decision recorded. |
+| `push-to-github.command` | Double-click to commit and push. |
 
 ## What this build deliberately does not do
 
-This is a Tier 1 demo of the viewing experience only. It does not include report upload, automatic data extraction, charts, multiple companies, accounts, or any saved state — those stay out of scope by design, along with `.xlsx`/Word export and any PDF-generation library (the Print/PDF button uses the browser's own print dialog instead).
+A Tier 1 demo of the viewing experience only. No report upload, no automatic extraction, no multiple companies, no accounts, no saved state. No `.xlsx` or Word export and no PDF library — the Print / PDF button uses your browser's own print dialogue, and the charts are drawn by hand rather than by a charting library.
+
+One thing discussed but not built, waiting on a decision rather than on effort:
+
+- **An Environmental / Social / Governance filter.** The source file has no E/S/G column, so each disclosure has to be classified. Rule-based classification covers about 84% of rows; 105 are genuinely none of the three. That mapping is a professional judgment you need to sign off, not something to guess at.
 
 ## Notes on this build
 
-- **Accent colour:** a muted slate blue (`#2f5061`), defined once as `--accent` near the top of `styles.css` so it can be swapped for a brand colour later by changing that one line.
-- **Performance:** with 663 rows, the page builds every row once when it loads and only shows/hides rows when you filter — it doesn't rebuild the table on every keystroke. Search is debounced by ~120 milliseconds so fast typing doesn't feel laggy.
-- **The "Updated" date** (`17 Jul 2026`) is carried over from the reference page, since the source spreadsheet itself has no date field. Update it in `tools/convert.py` (`UPDATED_DATE`) if a more accurate date becomes available.
+- **Accent colour:** `#0f4c5c`, defined once as `--accent` at the top of `styles.css`. Change that one line to swap it for a brand colour.
+- **Performance:** every row is built once when the page loads, then shown or hidden as you filter — the table is never rebuilt on a keystroke. Search is delayed by 120 milliseconds so fast typing doesn't stutter.
+- **Number formatting:** thousands separators are added for display only. The stored values keep their exact source precision, including decimals — nothing is rounded or converted.
+- **The "Updated" date** (`17 Jul 2026`) comes from the reference page, since the spreadsheet has no date field. Change `UPDATED` in `tools/convert.py` if a better date becomes available.
+- **Tested:** filter counts, search behaviour and the CSV export are verified against the real 663 rows. The visual rendering has not been checked in a browser — see the note in the conversation history.
