@@ -61,9 +61,13 @@ How it goes:
   page numbers. Spot-checked tables came out correct. That is one report, not
   a measured accuracy rate — `phase3-spike-brief.md` still describes the
   proper measurement.
-- **Some tables still yield nothing.** 21 of the 91 indicators produced
-  figures. Tables whose layout it cannot read are skipped rather than
-  guessed at, so the risk is a missing figure, not a wrong one.
+- **Some tables still yield nothing.** Tables whose layout it cannot read
+  are skipped rather than guessed at, so the risk is a missing figure, not
+  a wrong one.
+- **The Highlights text is uneven.** Where an answer is a table, the table
+  is written out as readable prose. Where the report lays a question and
+  its answer out inside a table, the text can still come through as
+  fragments. Figures are unaffected — this is about the narrative column.
 - **It reads digital text only.** A scanned report contains pictures of
   words, and no text can be pulled from it at all. The app says so rather
   than producing an empty profile.

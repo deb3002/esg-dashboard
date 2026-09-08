@@ -280,15 +280,38 @@ function locate(pages) {
 function splitPrinciple(pages, principle, start, end) {
   var marks = [], block = null;
   for (var p = start; p <= end; p++) {
-    var lines = (pages[p - 1] || {}).lines || [];
+    var pg = pages[p - 1] || {};
+    var lines = pg.lines || [];
+    var bands = pg.tables || [];
+    function inTable(y) {
+      return bands.some(function (t) { return y <= t.top + 2 && y >= t.bottom - 2; });
+    }
     for (var i = 0; i < lines.length; i++) {
       var t = lines[i].text;
       if (RE_ESSENTIAL.test(t)) { block = "E"; continue; }
       if (RE_LEADERSHIP.test(t)) { block = "L"; continue; }
       var m = RE_QUESTION.exec(t);
       if (m && block) {
+        // A BRSR question runs over two or three lines and ends with "?"
+        // or ":". Taking only the first line left the title cut mid-word
+        // and pushed the rest into the answer.
+        var stub = m[2].trim(), endY = lines[i].y, k = i;
+        while (!/[?:]$/.test(stub) && k + 1 < lines.length && k - i < 3) {
+          var nxtText = lines[k + 1].text;
+          // Never absorb a table row: the question ends where the
+          // answer's table begins.
+          // A line that already reports a figure is the answer, not more
+          // of the question.
+          if (inTable(lines[k + 1].y) || /FY\s*\d{4}\s*[:\-]/i.test(nxtText) ||
+              RE_QUESTION.test(nxtText) || RE_ESSENTIAL.test(nxtText) ||
+              RE_LEADERSHIP.test(nxtText) || RE_PRINCIPLE.test(nxtText) ||
+              /^\s*[\d,.]+\s*$/.test(nxtText)) break;
+          k++;
+          stub += " " + nxtText.trim();
+          endY = lines[k].y;
+        }
         marks.push({n: parseInt(m[1], 10), block: block, page: p,
-                    y: lines[i].y, stub: m[2].trim()});
+                    y: endY, stub: stub.replace(/\s+/g, " ").trim()});
       }
     }
   }
@@ -328,7 +351,10 @@ function contentFor(pages, ind) {
       var inTable = (pg.tables || []).some(function (t) {
         return line.y <= t.top + 2 && line.y >= t.bottom - 2;
       });
-      if (!inTable) narrative.push(line.text);
+      if (inTable) return;
+      var t = line.text.trim();
+      if (/^\d{1,4}\s*\|\s*\d{1,4}$/.test(t) || /^\d{1,3}$/.test(t)) return;
+      narrative.push(t);
     });
   }
   return {
@@ -498,13 +524,16 @@ function stripUnit(text) {
 // the prose is cut at a word boundary rather than mid-word.
 function shortHeader(text) {
   var flat = String(text || "").replace(/\s+/g, " ").trim();
-  var key = /\(([A-Z](?:\s*\/\s*[A-Z])?)\)\s*$/.exec(flat);
+  // SEBI labels this year's columns (A)(B) and last year's (C)(D). They
+  // mean the same thing, so the key is dropped — otherwise the same
+  // measure never lines up across years and no trend can form.
   var body = stripUnit(flat).replace(/[,;]?\s+(?:or|and|of|who|which)$/i, "").trim();
-  if (body.length > 48) {
-    body = body.slice(0, 48);
+  if (!body) body = flat.replace(/[()]/g, "").trim();
+  if (body.length > 52) {
+    body = body.slice(0, 52);
     body = body.slice(0, Math.max(body.lastIndexOf(" "), 20)).replace(/[,;]$/, "") + "\u2026";
   }
-  return key ? (body + " (" + key[1].replace(/\s+/g, "") + ")") : body;
+  return body;
 }
 
 // One table -> figures, using the year row and the sub-header beneath it.
@@ -591,7 +620,38 @@ function figuresFromTable(rows, pageNo, carry) {
     return best ? best.text : "";
   }
 
-  var figures = [], lastLabel = "", seq = 0;
+  // The Highlights column needs readable text, and a table-only answer
+  // has none. Writing the table back out as prose — the way the source
+  // profile's analysts did — gives the row something to say.
+  // Work the labels out first. "Male" and "Female" appear under both the
+  // employee block and the worker block, so a label that repeats within a
+  // table is a child of the last label that does not — otherwise one
+  // measure ends up holding two different values for the same year.
+  var rowLabels = [], carryLabel = [], counts = {};
+  for (var q = firstData; q < rows.length; q++) {
+    var qc = rows[q].cells.filter(function (c) {
+      return (c.x0 + c.x1) / 2 < years[0].x0 - 2;
+    });
+    var got = false;
+    qc.forEach(function (c, idx) {
+      if (!c.text || RE_FY.test(c.text)) return;
+      carryLabel[idx] = c.text;
+      carryLabel.length = idx + 1;
+      got = true;
+    });
+    var lbl = carryLabel.filter(Boolean).join(" \u2014 ").replace(/\s+/g, " ").trim();
+    rowLabels[q] = {label: lbl, own: got};
+    if (got && lbl) counts[lbl] = (counts[lbl] || 0) + 1;
+  }
+  var section = "";
+  for (var q2 = firstData; q2 < rows.length; q2++) {
+    var rl = rowLabels[q2];
+    if (!rl || !rl.label) continue;
+    if (counts[rl.label] > 1) rl.label = section ? section + " \u2014 " + rl.label : rl.label;
+    else if (rl.own) section = rl.label;
+  }
+
+  var figures = [], seq = 0, prose = {}, proseOrder = [];
   for (var r = firstData; r < rows.length; r++) {
     var cells = rows[r].cells;
     if (!cells.length) continue;
@@ -604,11 +664,10 @@ function figuresFromTable(rows, pageNo, carry) {
     });
     if (!labelCells.length) labelCells = [cells[0]];
     var labelCell = labelCells.filter(function (c) { return c.text; })[0] || labelCells[0];
-    var inherited = false;
-    var label = labelCells.map(function (c) { return c.text; })
-      .join(" ").replace(/\s+/g, " ").trim();
-    if (label && !RE_FY.test(label)) { lastLabel = label; seq = 0; }
-    else { label = lastLabel; inherited = true; seq++; }
+    var meta = rowLabels[r] || {label: "", own: false};
+    var inherited = !meta.own;
+    if (inherited) seq++; else seq = 0;
+    var label = meta.label;
     if (!label) continue;
 
     for (var c = 0; c < cells.length; c++) {
@@ -627,6 +686,11 @@ function figuresFromTable(rows, pageNo, carry) {
       // presenting it as if it were the parent row.
       if (inherited) measure += " (row " + (seq + 1) + ")";
 
+      var proseKey = measure.replace(/\s+/g, " ").trim();
+      if (!prose[proseKey]) { prose[proseKey] = []; proseOrder.push(proseKey); }
+      prose[proseKey].push((year ? year + ": " : "") + parsed.raw +
+                           (unit && unit !== "%" ? " " + unit : (unit === "%" ? "%" : "")));
+
       figures.push({
         measure: measure.replace(/\s+/g, " ").trim().slice(0, 110),
         value: parsed.value, raw: parsed.raw, unit: unit,
@@ -636,6 +700,9 @@ function figuresFromTable(rows, pageNo, carry) {
       });
     }
   }
+  figures.prose = proseOrder.map(function (k) {
+    return k + " — " + prose[k].join("; ") + ".";
+  }).join(" ");
   figures.header = (years.length && years[0].label) ? {
     years: years, subs: subs,
     width: [rows[0].cells[0].x0, rows[0].cells[rows[0].cells.length - 1].x1]
@@ -688,16 +755,18 @@ function extract(pages, onLog) {
       var found = splitPrinciple(pages, p, r[0], r[1]);
       found.forEach(function (ind) {
         var content = contentFor(pages, ind);
-        var figs = [], carry = null;
+        var figs = [], carry = null, tableProse = [];
         content.tables.forEach(function (t) {
           var got = figuresFromTable(t.rows, t.page, carry);
           if (got.header) carry = got.header;
+          if (got.prose) tableProse.push(got.prose);
           figs = figs.concat(got);
         });
         // Prose figures only where no table gave any, so a tabulated
         // number is never restated as a vaguer duplicate.
         if (!figs.length) figs = figuresFromText(content.narrative, ind.page);
-        ind.narrative = content.narrative;
+        ind.narrative = [content.narrative, tableProse.join(" ")]
+          .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
         ind.figures = dedupe(figs);
         ind.status = "pending";
         indicators.push(ind);
@@ -755,6 +824,48 @@ function buildSeries(metrics) {
   return {series: series, standalone: standalone};
 }
 
+// The year is kept exactly as the report prints it ("FY 2023-24"), so the
+// series are grouped from the structured figures rather than by digging a
+// four-digit year back out of a label.
+function seriesFromFigures(figures) {
+  var groups = {}, order = [];
+  figures.forEach(function (f) {
+    if (!f.year) return;
+    var key = f.measure + "|" + (f.unit || "");
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    if (!groups[key].some(function (p) { return p.year === f.year; })) {
+      groups[key].push({year: f.year, value: f.value});
+    }
+  });
+  var series = [], used = {};
+  order.forEach(function (key) {
+    var pts = groups[key];
+    if (pts.length < 2) return;
+    pts.sort(function (a, b) { return a.year < b.year ? -1 : 1; });
+    used[key] = true;
+    var breaks = [];
+    for (var i = 1; i < pts.length; i++) {
+      var a = pts[i - 1].value, b = pts[i].value;
+      if (a > 0 && b > 0 && Math.max(a, b) / Math.min(a, b) >= DISCONTINUITY_RATIO) {
+        breaks.push(i);
+      }
+    }
+    var parts = key.split("|");
+    var entry = {measure: parts[0], unit: parts[1], points: pts,
+                 flagged: breaks.length > 0};
+    if (entry.flagged) { entry.breaks = breaks; entry.note = GENERIC_NOTE; }
+    series.push(entry);
+  });
+  var standalone = [];
+  figures.forEach(function (f) {
+    var key = f.measure + "|" + (f.unit || "");
+    if (used[key]) return;
+    standalone.push({value: f.value,
+      label: f.measure + (f.year ? " " + f.year : "") + (f.unit ? " (" + f.unit + ")" : "")});
+  });
+  return {series: series, standalone: standalone};
+}
+
 function ifcFrom(griText) {
   var out = [];
   Object.keys(IFC_BY_GRI).forEach(function (prefix) {
@@ -779,7 +890,7 @@ function buildRows(state) {
                         : (f.measure + " " + f.year)
         };
       });
-    var built = buildSeries(metrics);
+    var built = seriesFromFigures(ind.figures.filter(function (f) { return !f.dropped; }));
     var frameworks = [{
       name: "BRSR",
       detail: ind.code + " · Principle " + ind.principle + " · " + ind.block,
