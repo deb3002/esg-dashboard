@@ -30,6 +30,52 @@ The first loads the real page code and the real data and checks the filters, the
 
 Long narrative text is shortened to about four lines with a **Show more** link. Rows with reported figures show them above the text.
 
+## Turning a report into a profile (new, and not yet proven)
+
+There is now a second converter. `tools/convert.py` turns the portal's
+spreadsheet export into a profile; `tools/extract_brsr.py` turns a **filed
+BRSR inside an annual report PDF** into one.
+
+It works in two steps, and the second one will not run until you have done
+the first.
+
+```bash
+pip3 install pdfplumber                                  # once
+python3 tools/extract_brsr.py extract annual-report.pdf  # 1. read the PDF
+python3 tools/extract_brsr.py publish                    # 2. write the page
+```
+
+**Step 1** finds the BRSR section, splits it into SEBI's numbered
+indicators, and pulls out every figure with its unit, its year and the page
+it came from. It writes `tools/extraction/review.html`.
+
+**Step 2 refuses to run** until you have opened that review file, checked
+each figure against the page number shown, and marked every indicator as
+`approved`, `corrected` or `not_disclosed` in `tools/extraction/review.json`.
+This is deliberate. A missing figure is recoverable; a wrong emissions
+figure published under a client's name, next to a link to their audited
+annual report, is not.
+
+### What you should not assume about it
+
+- **Its accuracy on real filings is unmeasured.** It has been tested only
+  against a report generated from data we already had — that proves the
+  machinery works, not that it reads real reports well. Measuring it
+  properly is what `phase3-spike-brief.md` describes.
+- **It covers the BRSR section only** — roughly a fifth of a full profile.
+  Board biographies, awards, ratings, memberships and corporate information
+  come from elsewhere and are not extracted.
+- **It produces no keywords from the text.** The keyword tags on an
+  extracted profile are structural facts from the form (`BRSR`,
+  `Principle 6`, `Essential`) and nothing else. Guessing keywords from
+  wording is the mistake that produced 445 bad GRI tags once already.
+
+Check it with:
+
+```bash
+python3 tools/test_extract.py
+```
+
 ## The Framework filter
 
 A fourth dropdown filters by reporting framework. Three of the four are sourced directly. IFC is derived, and marked as such.
