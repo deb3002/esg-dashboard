@@ -42,8 +42,13 @@ the first.
 ```bash
 pip3 install pdfplumber                                  # once
 python3 tools/extract_brsr.py extract annual-report.pdf  # 1. read the PDF
-python3 tools/extract_brsr.py publish                    # 2. write the page
+python3 tools/extract_brsr.py publish --data data/extracted.js   # 2. write it
 ```
+
+`publish` will not overwrite an existing profile unless you pass
+`--replace`. Your 663-row demo lives in `data/disclosures.js`; an extracted
+profile covers the BRSR section only, so publishing over it would replace a
+full profile with a fifth of one.
 
 **Step 1** finds the BRSR section, splits it into SEBI's numbered
 indicators, and pulls out every figure with its unit, its year and the page

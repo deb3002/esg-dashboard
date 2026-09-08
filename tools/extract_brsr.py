@@ -526,7 +526,7 @@ def build_rows(payload):
     return rows
 
 
-def publish(review_path, data_path, company):
+def publish(review_path, data_path, company, replace=False):
     payload = json.load(open(review_path, encoding="utf-8"))
 
     pending = [i["code"] for i in payload["indicators"]
@@ -544,6 +544,28 @@ def publish(review_path, data_path, company):
     rows = build_rows(payload)
     if not rows:
         print("REFUSING TO PUBLISH — every indicator was marked not_disclosed.")
+        return 1
+
+    # An extracted profile covers the BRSR section only. Writing it over an
+    # existing profile would silently replace a full one — the demo build is
+    # 663 rows — with a fifth of a profile, which is the last thing anyone
+    # wants to discover in front of a client.
+    if os.path.exists(data_path) and not replace:
+        existing = "an existing profile"
+        try:
+            text = open(data_path, encoding="utf-8").read()
+            existing = "%d rows" % text.count('"subfactor"')
+        except OSError:
+            pass
+        print("REFUSING TO PUBLISH — %s already has %s."
+              % (os.path.relpath(data_path, ROOT), existing))
+        print("This extraction has %d rows and covers the BRSR section only."
+              % len(rows))
+        print("\nWriting it here would replace that profile. Either:")
+        print("  - keep both, by publishing elsewhere:")
+        print("      --data data/extracted.js")
+        print("  - or replace it deliberately:")
+        print("      --replace")
         return 1
 
     figures = sum(len(r["metrics"]) for r in rows)
@@ -572,6 +594,8 @@ def main():
     p.add_argument("--review", default=os.path.join(OUT_DIR, "review.json"))
     p.add_argument("--data", default=os.path.join(ROOT, "data", "disclosures.js"))
     p.add_argument("--company", default="Company Name")
+    p.add_argument("--replace", action="store_true",
+                   help="overwrite an existing profile instead of refusing")
 
     args = ap.parse_args()
 
@@ -588,7 +612,7 @@ def main():
         print("indicator's status in %s and run publish." % j)
         return 0
 
-    return publish(args.review, args.data, args.company)
+    return publish(args.review, args.data, args.company, args.replace)
 
 
 if __name__ == "__main__":
