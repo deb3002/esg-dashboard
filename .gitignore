@@ -18,3 +18,8 @@ ESGReport.xls
 # rebuilt by running the tools, so there is nothing to keep in git.
 tools/fixtures/
 tools/extraction/
+tools/fixtures/_apptest.html
+
+# playwright-core, installed only to run tools/test_app.js
+node_modules/
+package-lock.json

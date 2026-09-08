@@ -30,6 +30,60 @@ The first loads the real page code and the real data and checks the filters, the
 
 Long narrative text is shortened to about four lines with a **Show more** link. Rows with reported figures show them above the text.
 
+## The report-to-profile app
+
+**`brsr-app.html`** — double-click it. Drop in a BRSR or sustainability
+report PDF, check what it read, and it gives you the profile page.
+
+Nothing is uploaded anywhere. The report is read inside the page, on your
+own computer, with no internet connection needed. You can hand the file to
+a client and it will work the same way on their machine.
+
+How it goes:
+
+1. **Drop the PDF in.** It finds the BRSR section inside the annual report.
+2. **Check what it read.** Every figure is listed with the page it came
+   from, so you can check it against the report. Type over anything wrong,
+   drop a figure, or exclude a whole indicator. Nothing is generated until
+   you have been through them.
+3. **Press Generate.** You get a preview, plus two downloads: the finished
+   profile page as a single HTML file, and the data file if you would
+   rather drop it into the existing viewer.
+
+### What you should not assume about it
+
+- **Its accuracy on real filings is unmeasured.** It has been tested end to
+  end in a browser against a report built from data we already had, which
+  proves the machinery works — not that it reads real reports well.
+  Measuring that properly is what `phase3-spike-brief.md` describes.
+- **It reads digital text only.** A scanned report contains pictures of
+  words, and no text can be pulled from it at all. The app says so rather
+  than producing an empty profile.
+- **It covers the BRSR section only** — roughly a fifth of a full profile.
+  Board biographies, awards, ratings, memberships and corporate information
+  are not in the BRSR and are not extracted.
+- **The keyword filter will be thin.** Extracted profiles carry structural
+  tags only (`BRSR`, `Principle 6`, `Essential`), because guessing keywords
+  from wording is the mistake that produced 445 bad GRI tags once already.
+
+### Rebuilding it
+
+`brsr-app.html` is generated. To rebuild after changing the page or the
+mappings:
+
+```bash
+python3 tools/build_app.py     # writes brsr-app.html
+python3 tools/test_app.py      # drives it in a browser and checks the result
+```
+
+It bundles pdf.js, which is the only way to read a PDF in a browser. That
+library is embedded in this one file and never reaches the shipped viewer —
+`index.html` still has zero dependencies.
+
+## The command-line version
+
+If you would rather script it, the same extraction runs from a Terminal.
+
 ## Turning a report into a profile (new, and not yet proven)
 
 There is now a second converter. `tools/convert.py` turns the portal's

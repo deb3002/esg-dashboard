@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BRSR Report → ESG Profile</title>
+<style>
+:root{
+  --accent:#0f4c5c; --accent-soft:#e7f0f2; --ink:#1a1a1a; --muted:#5c6670;
+  --line:#dfe4e8; --bg:#f4f6f7; --warn:#b26a00; --warn-bg:#fff4e5;
+  --ok:#1f7a4d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+header.top{background:var(--accent);color:#fff;padding:20px 28px}
+header.top h1{margin:0;font-size:20px;letter-spacing:.2px}
+header.top p{margin:4px 0 0;font-size:14px;opacity:.85}
+main{max-width:1180px;margin:0 auto;padding:24px 28px 60px}
+.step{display:none}
+.step.on{display:block}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--accent);
+  background:var(--accent);color:#fff;padding:10px 18px}
+button.ghost{background:#fff;color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.drop{background:#fff;border:2px dashed #b9c4cc;border-radius:10px;padding:64px 24px;
+  text-align:center;transition:border-color .15s,background .15s}
+.drop.hot{border-color:var(--accent);background:var(--accent-soft)}
+.drop h2{margin:0 0 8px;font-size:19px}
+.drop p{margin:0 0 20px;color:var(--muted);font-size:15px}
+.note{background:var(--warn-bg);border-left:4px solid var(--warn);
+  padding:12px 16px;margin:18px 0;font-size:14.5px;border-radius:0 6px 6px 0}
+.bar{height:8px;background:#dde3e7;border-radius:5px;overflow:hidden;margin:18px 0}
+.bar>i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+#log{font-size:14px;color:var(--muted);white-space:pre-line;min-height:80px}
+.summary{display:flex;gap:22px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);
+  border-radius:8px;padding:14px 18px;margin-bottom:16px;align-items:center}
+.summary b{font-size:22px;display:block;line-height:1.2}
+.summary span{font-size:13px;color:var(--muted)}
+.actions{margin-left:auto;display:flex;gap:10px}
+.ind{background:#fff;border:1px solid var(--line);border-radius:8px;margin:14px 0;
+  overflow:hidden}
+.ind.approved{border-color:#bcd9c8}
+.ind.excluded{opacity:.55}
+.ind>header{display:flex;align-items:flex-start;gap:14px;padding:14px 18px;
+  border-bottom:1px solid var(--line);background:#fbfcfc}
+.ind h3{margin:0;font-size:15.5px;font-weight:600;flex:1}
+.code{background:var(--accent);color:#fff;border-radius:4px;padding:2px 7px;
+  font-size:12px;font-weight:700;white-space:nowrap}
+.pg{font-size:12.5px;color:var(--muted);white-space:nowrap}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{border-bottom:1px solid #eef1f3;padding:7px 18px;text-align:left;vertical-align:top}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
+  background:#f7f9fa}
+td.n{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+td input{font:inherit;width:100%;border:1px solid transparent;background:transparent;
+  border-radius:4px;padding:3px 5px}
+td input:focus{border-color:var(--accent);background:#fff;outline:none}
+.low{color:var(--warn);font-weight:700}
+.none{color:var(--muted);font-style:italic;padding:12px 18px;font-size:14px}
+.ind footer{display:flex;gap:10px;padding:10px 18px;background:#fbfcfc;
+  border-top:1px solid var(--line);align-items:center}
+.ind footer span{font-size:13px;color:var(--muted);margin-right:auto}
+.pill{border:1px solid var(--line);background:#fff;color:var(--ink);
+  padding:6px 12px;font-size:13.5px;border-radius:20px}
+.pill.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.pill.off{background:#8a949c;border-color:#8a949c;color:#fff}
+details{padding:10px 18px;font-size:14px;color:#3d4750}
+summary{cursor:pointer;color:var(--accent);font-size:13.5px}
+.err{background:#fdecea;border-left:4px solid #b3261e;padding:12px 16px;
+  border-radius:0 6px 6px 0;margin:18px 0;font-size:14.5px}
+.done{background:#fff;border:1px solid var(--line);border-radius:8px;padding:22px}
+.done h2{margin:0 0 6px;font-size:19px}
+.done p{margin:0 0 16px;color:var(--muted);font-size:15px}
+iframe{width:100%;height:620px;border:1px solid var(--line);border-radius:8px;background:#fff}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>BRSR Report → ESG Profile</h1>
+  <p>Drop in a filed report. Check what was read. Get the profile page.</p>
+</header>
+
+<main>
+
+<!-- 1. DROP ------------------------------------------------------------ -->
+<section class="step on" id="step-drop">
+  <div class="drop" id="drop">
+    <h2>Drop a BRSR or sustainability report PDF here</h2>
+    <p>Nothing is uploaded. The report is read inside this page, on your computer.</p>
+    <button id="pick">Choose a PDF</button>
+    <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+  </div>
+  <div class="note">
+    <strong>Read this before showing anyone the result.</strong> How accurately
+    this reads a real filed report has not been measured. It has been tested
+    only against a report built from data we already had, which proves the
+    machinery works — not that it reads real reports well. Check every figure
+    on the next screen against the page number it gives you.
+  </div>
+</section>
+
+<!-- 2. WORKING ---------------------------------------------------------- -->
+<section class="step" id="step-work">
+  <h2 id="work-title">Reading the report…</h2>
+  <div class="bar"><i id="bar"></i></div>
+  <div id="log"></div>
+</section>
+
+<!-- 3. REVIEW ----------------------------------------------------------- -->
+<section class="step" id="step-review">
+  <div class="summary">
+    <div><b id="s-ind">0</b><span>indicators</span></div>
+    <div><b id="s-fig">0</b><span>figures</span></div>
+    <div><b id="s-low">0</b><span>need a closer look</span></div>
+    <div><b id="s-left">0</b><span>still to check</span></div>
+    <div class="actions">
+      <button class="ghost" id="approve-all">Approve all</button>
+      <button id="generate" disabled>Generate the profile page</button>
+    </div>
+  </div>
+  <div class="note">
+    <strong>Nothing is generated until you have been through these.</strong>
+    Each figure shows the page it came from — check it against the report.
+    Correct anything wrong by typing over it, or exclude an indicator entirely.
+  </div>
+  <div id="review"></div>
+</section>
+
+<!-- 4. DONE ------------------------------------------------------------- -->
+<section class="step" id="step-done">
+  <div class="done">
+    <h2>Profile page ready</h2>
+    <p id="done-sub"></p>
+    <p>
+      <button id="dl-page">Download the profile page</button>
+      <button class="ghost" id="dl-data">Download the data file</button>
+      <button class="ghost" id="again">Start again</button>
+    </p>
+    <div class="note" id="done-note"></div>
+    <iframe id="preview" title="Generated profile preview"></iframe>
+  </div>
+</section>
+
+</main>
+
+<script id="pdfjs-lib" type="text/plain">__PDFJS_LIB__</script>
+<script id="pdfjs-worker" type="text/plain">__PDFJS_WORKER__</script>
+<script id="profile-css" type="text/plain">__PROFILE_CSS__</script>
+<script id="profile-js" type="text/plain">__PROFILE_JS__</script>
+<script id="gri-map" type="application/json">__GRI_MAP__</script>
+<script id="ifc-map" type="application/json">__IFC_MAP__</script>
+<script id="ifc-names" type="application/json">__IFC_NAMES__</script>
+
+<script>
+/* ====================================================================
+   BRSR report -> ESG profile, entirely in the browser.
+
+   Ported from tools/extract_brsr.py. The rules that matter are the same
+   in both: figures are never invented, never rounded, never converted,
+   and nothing is generated until a human has approved it.
+   ==================================================================== */
+(function () {
+"use strict";
+
+var $ = function (id) { return document.getElementById(id); };
+var decode = function (id) {
+  var raw = $(id).textContent;
+  var bin = atob(raw);
+  var bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder("utf-8").decode(bytes);
+};
+var json = function (id) { return JSON.parse($(id).textContent); };
+
+var GRI_BY_INDICATOR = json("gri-map");
+var IFC_BY_GRI = json("ifc-map");
+var IFC_NAMES = json("ifc-names");
+var SEBI_SOURCE = "SEBI BRSR format, Annexure I to circular " +
+  "SEBI/HO/CFD/CMD-2/P/CIR/2021/562, 10 May 2021";
+var LINKAGE_SOURCE = "GRI–SEBI BRSR linkage document (GRI with BSE, 2022)";
+var IFC_SOURCE = "Derived by alignment from IFC's GRI benchmarking " +
+  "(Elevating ESG Reporting in Emerging Markets, January 2025)";
+
+/* --- load pdf.js from the copy embedded in this file ---------------- */
+var pdfjsLib = null;
+function loadPdfJs() {
+  if (pdfjsLib) return Promise.resolve(pdfjsLib);
+  return new Promise(function (resolve, reject) {
+    try {
+      var lib = decode("pdfjs-lib");
+      var s = document.createElement("script");
+      s.textContent = lib;
+      document.head.appendChild(s);
+      pdfjsLib = window["pdfjs-dist/build/pdf"] || window.pdfjsLib;
+      if (!pdfjsLib) { reject(new Error("pdf.js did not load")); return; }
+      var wblob = new Blob([decode("pdfjs-worker")], {type: "text/javascript"});
+      pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(wblob);
+      resolve(pdfjsLib);
+    } catch (e) { reject(e); }
+  });
+}
+
+/* --- text geometry --------------------------------------------------- */
+// pdf.js gives each run of text a position. Runs on the same baseline are
+// one line; x position is what separates a row label from its columns.
+function pageLines(content) {
+  var buckets = {};
+  content.items.forEach(function (it) {
+    if (!it.str || !it.str.trim()) return;
+    var x = it.transform[4], y = it.transform[5];
+    var key = Math.round(y / 2.2);
+    (buckets[key] = buckets[key] || []).push({x: x, y: y, s: it.str, w: it.width});
+  });
+  return Object.keys(buckets).map(function (k) {
+    var runs = buckets[k].sort(function (a, b) { return a.x - b.x; });
+    return {
+      y: runs[0].y,
+      runs: runs,
+      text: runs.map(function (r) { return r.s; }).join(" ")
+                .replace(/\s+/g, " ").trim()
+    };
+  }).sort(function (a, b) { return b.y - a.y; });   // top of page first
+}
+
+/* --- numbers --------------------------------------------------------- */
+var NUMBER = /-?\d[\d,]*(?:\.\d+)?/;
+// Indian (4,94,545.39) and international (494,545.39) grouping both appear
+// in filed reports. The printed form is kept so nothing is reformatted.
+function parseNumber(text) {
+  if (text === null || text === undefined) return null;
+  var flat = String(text).replace(/\s+/g, " ").trim();
+  var m = NUMBER.exec(flat);
+  if (!m) return null;
+  var value = parseFloat(m[0].replace(/,/g, ""));
+  if (isNaN(value)) return null;
+  var unit = (flat.slice(0, m.index) + " " + flat.slice(m.index + m[0].length))
+    .replace(/[\s:;,.]+$/, "").replace(/^[\s:;,.]+/, "").replace(/\s+/g, " ").trim();
+  return {value: value, raw: m[0], unit: unit};
+}
+
+/* --- locate ---------------------------------------------------------- */
+var RE_SECTION_C = /SECTION\s+C\b/i;
+var RE_PRINCIPLE = /^\s*PRINCIPLE\s*[-–]?\s*(\d)\b/i;
+var RE_ESSENTIAL = /^\s*Essential\s+Indicators?\s*$/i;
+var RE_LEADERSHIP = /^\s*Leadership\s+Indicators?\s*$/i;
+var RE_QUESTION = /^\s*(\d{1,2})\s*[.)]\s+(\S.*)$/;
+var RE_FY_VALUE = /FY\s*(\d{4})\s*:\s*([^;]+)/gi;
+var RE_YEAR_COL = /FY\s*[-–]?\s*(\d{4})/i;
+
+function locate(pages) {
+  var sectionC = null, seen = {}, ordered = [];
+  pages.forEach(function (lines, i) {
+    var n = i + 1;
+    var joined = lines.map(function (l) { return l.text; }).join("\n");
+    if (sectionC === null && RE_SECTION_C.test(joined)) sectionC = n;
+    lines.forEach(function (l) {
+      var m = RE_PRINCIPLE.exec(l.text);
+      if (m) {
+        var p = parseInt(m[1], 10);
+        if (!seen[p]) { seen[p] = true; ordered.push({p: p, page: n}); }
+      }
+    });
+  });
+  ordered.sort(function (a, b) { return a.page - b.page; });
+  var ranges = {};
+  ordered.forEach(function (o, i) {
+    var end = (i + 1 < ordered.length) ? ordered[i + 1].page - 1 : pages.length;
+    ranges[o.p] = [o.page, Math.max(o.page, end)];
+  });
+  return {sectionC: sectionC, ranges: ranges};
+}
+
+/* --- split ----------------------------------------------------------- */
+// BRSR questions are numbered under "Essential Indicators" and "Leadership
+// Indicators", so position gives the code: question 3 under Principle 6's
+// essential indicators is P6-E3. No question wording is needed.
+function splitPrinciple(pages, principle, start, end) {
+  var marks = [], block = null;
+  for (var p = start; p <= end; p++) {
+    var lines = pages[p - 1] || [];
+    for (var i = 0; i < lines.length; i++) {
+      var t = lines[i].text;
+      if (RE_ESSENTIAL.test(t)) { block = "E"; continue; }
+      if (RE_LEADERSHIP.test(t)) { block = "L"; continue; }
+      var m = RE_QUESTION.exec(t);
+      if (m && block) {
+        marks.push({n: parseInt(m[1], 10), block: block, page: p,
+                    idx: i, stub: m[2].trim()});
+      }
+    }
+  }
+  return marks.map(function (mk, i) {
+    var nxt = marks[i + 1];
+    return {
+      code: "P" + principle + "-" + mk.block + mk.n,
+      principle: principle,
+      block: mk.block === "E" ? "Essential" : "Leadership",
+      question: mk.stub,
+      page: mk.page,
+      from: {page: mk.page, idx: mk.idx},
+      to: nxt ? {page: nxt.page, idx: nxt.idx} : {page: end, idx: 1e9}
+    };
+  });
+}
+
+function linesFor(pages, ind) {
+  var out = [];
+  for (var p = ind.from.page; p <= ind.to.page; p++) {
+    var lines = pages[p - 1] || [];
+    var lo = (p === ind.from.page) ? ind.from.idx + 1 : 0;
+    var hi = (p === ind.to.page) ? ind.to.idx : lines.length;
+    for (var i = lo; i < hi && i < lines.length; i++) {
+      out.push({page: p, line: lines[i]});
+    }
+  }
+  return out;
+}
+
+/* --- figures --------------------------------------------------------- */
+// A BRSR table is a header row naming the years, then rows of label +
+// one value per year. Columns are found by x position, because pdf.js
+// reports text runs and not cells.
+function figuresFromRows(rows) {
+  var figures = [], cols = null, usedLines = {};
+
+  rows.forEach(function (entry, ri) {
+    var line = entry.line, hits = [];
+    line.runs.forEach(function (r) {
+      var m = RE_YEAR_COL.exec(r.s);
+      if (m) hits.push({year: m[1], x: r.x});
+    });
+    if (hits.length >= 2) {
+      cols = hits;                       // a header row: remember the columns
+      usedLines[ri] = true;
+      return;
+    }
+    if (!cols) return;
+
+    var label = [], values = [];
+    line.runs.forEach(function (r) {
+      var nearest = null, best = 1e9;
+      cols.forEach(function (c) {
+        var d = Math.abs(r.x - c.x);
+        if (d < best) { best = d; nearest = c; }
+      });
+      // A run left of the first column is label text; near a column and
+      // numeric, it is that year's value.
+      if (r.x < cols[0].x - 6) { label.push(r.s); }
+      else if (nearest && best < 90) { values.push({col: nearest, run: r}); }
+      else { label.push(r.s); }
+    });
+
+    var name = label.join(" ").replace(/\s+/g, " ").trim();
+    if (!name) return;
+    var perYear = {};
+    values.forEach(function (v) {
+      (perYear[v.col.year] = perYear[v.col.year] || []).push(v.run.s);
+    });
+    Object.keys(perYear).forEach(function (year) {
+      var parsed = parseNumber(perYear[year].join(" "));
+      if (!parsed) return;
+      figures.push({
+        measure: name, value: parsed.value, raw: parsed.raw,
+        unit: parsed.unit, year: year, page: entry.page,
+        source: "table", confidence: 0.9
+      });
+      usedLines[ri] = true;
+    });
+  });
+
+  return {figures: figures, used: usedLines};
+}
+
+function figuresFromText(text, page) {
+  var out = [], m;
+  RE_FY_VALUE.lastIndex = 0;
+  while ((m = RE_FY_VALUE.exec(text)) !== null) {
+    var parsed = parseNumber(m[2]);
+    if (!parsed) continue;
+    var before = text.slice(Math.max(0, m.index - 90), m.index);
+    var label = before.split(/[;:.]/).pop().replace(/^[\s()a-j]+/, "").trim();
+    out.push({
+      measure: (label || "Reported figure").slice(0, 80),
+      value: parsed.value, raw: parsed.raw, unit: parsed.unit,
+      year: m[1], page: page, source: "narrative", confidence: 0.75
+    });
+  }
+  return out;
+}
+
+function dedupe(figures) {
+  var best = {};
+  figures.forEach(function (f) {
+    var k = f.value.toFixed(6) + "|" + f.year + "|" + f.unit.toLowerCase();
+    if (!best[k] || f.confidence > best[k].confidence) best[k] = f;
+  });
+  return Object.keys(best).map(function (k) { return best[k]; })
+    .sort(function (a, b) {
+      return a.measure === b.measure ? (a.year < b.year ? -1 : 1)
+                                     : (a.measure < b.measure ? -1 : 1);
+    });
+}
+
+/* --- the whole extraction ------------------------------------------- */
+function extract(pages, onLog) {
+  var loc = locate(pages);
+  var problems = [];
+  if (loc.sectionC === null) problems.push("No 'SECTION C' heading found.");
+  if (!Object.keys(loc.ranges).length) problems.push("No 'PRINCIPLE n' headings found.");
+
+  var indicators = [];
+  Object.keys(loc.ranges).map(Number).sort(function (a, b) { return a - b; })
+    .forEach(function (p) {
+      var r = loc.ranges[p];
+      var found = splitPrinciple(pages, p, r[0], r[1]);
+      found.forEach(function (ind) {
+        var rows = linesFor(pages, ind);
+        var tbl = figuresFromRows(rows);
+        var narrative = rows.filter(function (_, i) { return !tbl.used[i]; })
+          .map(function (e) { return e.line.text; }).join(" ")
+          .replace(/\s+/g, " ").trim();
+        var figs = tbl.figures.concat(figuresFromText(narrative, ind.page));
+        ind.narrative = narrative;
+        ind.figures = dedupe(figs);
+        ind.status = "pending";
+        indicators.push(ind);
+      });
+      if (onLog) {
+        onLog("Principle " + p + ": pages " + r[0] + "–" + r[1] +
+              ", " + found.length + " indicators");
+      }
+    });
+
+  return {located: loc, problems: problems, indicators: indicators};
+}
+
+/* --- profile rows ---------------------------------------------------- */
+var DISCONTINUITY_RATIO = 3.0;
+var GENERIC_NOTE = "The reporting basis may differ between years. " +
+  "Treat this series as not directly comparable.";
+
+// Same rule as the spreadsheet converter: any year-on-year jump of 3x or
+// more is flagged, because a jump that large is usually a change in what
+// was counted rather than a change in what happened.
+function buildSeries(metrics) {
+  var groups = {}, order = [];
+  metrics.forEach(function (m, i) {
+    var mm = /^(.*?)\s*(\d{4})\s*(?:\((.*)\))?$/.exec(m.label);
+    if (!mm) return;
+    var key = mm[1].trim() + "|" + (mm[3] || "").trim();
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push({year: mm[2], value: m.value, i: i});
+  });
+  var series = [], used = {};
+  order.forEach(function (key) {
+    var pts = groups[key];
+    if (pts.length < 2) return;
+    pts.sort(function (a, b) { return a.year < b.year ? -1 : 1; });
+    pts.forEach(function (p) { used[p.i] = true; });
+    var breaks = [];
+    for (var i = 1; i < pts.length; i++) {
+      var a = pts[i - 1].value, b = pts[i].value;
+      if (a > 0 && b > 0) {
+        var ratio = Math.max(a, b) / Math.min(a, b);
+        if (ratio >= DISCONTINUITY_RATIO) breaks.push(i);
+      }
+    }
+    var parts = key.split("|");
+    var entry = {
+      measure: parts[0], unit: parts[1],
+      points: pts.map(function (p) { return {year: p.year, value: p.value}; }),
+      flagged: breaks.length > 0
+    };
+    if (entry.flagged) { entry.breaks = breaks; entry.note = GENERIC_NOTE; }
+    series.push(entry);
+  });
+  var standalone = metrics.filter(function (_, i) { return !used[i]; });
+  return {series: series, standalone: standalone};
+}
+
+function ifcFrom(griText) {
+  var out = [];
+  Object.keys(IFC_BY_GRI).forEach(function (prefix) {
+    if (new RegExp("\\b" + prefix + "[-\\s]").test(griText + " ")) {
+      IFC_BY_GRI[prefix].forEach(function (ps) {
+        if (out.indexOf(ps) < 0) out.push(ps);
+      });
+    }
+  });
+  return out.sort();
+}
+
+function buildRows(state) {
+  var rows = [];
+  state.indicators.forEach(function (ind) {
+    if (ind.status !== "approved") return;
+    var metrics = ind.figures.filter(function (f) { return !f.dropped; })
+      .map(function (f) {
+        return {
+          value: f.value,
+          label: f.unit ? (f.measure + " " + f.year + " (" + f.unit + ")")
+                        : (f.measure + " " + f.year)
+        };
+      });
+    var built = buildSeries(metrics);
+    var frameworks = [{
+      name: "BRSR",
+      detail: ind.code + " · Principle " + ind.principle + " · " + ind.block,
+      indicator: ind.code, verified: true, source: SEBI_SOURCE
+    }];
+    var exact = GRI_BY_INDICATOR[ind.code];
+    if (exact) {
+      frameworks.push({
+        name: "GRI", detail: exact.replace(/GRI /g, ""), full: exact,
+        level: "indicator", verified: true, source: LINKAGE_SOURCE
+      });
+      ifcFrom(exact).forEach(function (ps) {
+        frameworks.push({
+          name: "IFC", detail: ps + " · by GRI alignment", ps: ps,
+          full: ps + " " + (IFC_NAMES[ps] || ""),
+          level: "alignment", verified: false, source: IFC_SOURCE
+        });
+      });
+    }
+    rows.push({
+      theme: "BRSR Disclosures",
+      category: "BRSR Section C: Principle " + ind.principle,
+      subfactor: ind.question.slice(0, 120),
+      // Structural facts from the form only. Guessing keywords from the
+      // wording is what produced 445 wrong framework tags once already.
+      keywords: ["BRSR", "Principle " + ind.principle, ind.block],
+      documents: [{label: state.filename + " (Page " + ind.page + ")", url: null}],
+      metrics: metrics,
+      frameworks: frameworks,
+      series: built.series,
+      standalone: built.standalone,
+      highlights: ind.narrative
+    });
+  });
+  return rows;
+}
+
+/* --- output ---------------------------------------------------------- */
+function dataFile(rows, company) {
+  var payload = {
+    company: company, updated: new Date().toLocaleDateString("en-GB",
+      {day: "2-digit", month: "short", year: "numeric"}),
+    anonymised: false,
+    themes: ["Overview & Approach", "Environment", "Social", "Governance",
+             "BRSR Disclosures", "Assurance & Recognition"],
+    ifcNames: IFC_NAMES, rows: rows
+  };
+  return "// GENERATED FILE — DO NOT EDIT BY HAND.\n" +
+    "// Produced from " + payload.company + "'s filed report by the\n" +
+    "// BRSR Report → ESG Profile app, and approved by a human before\n" +
+    "// it was written. Figures are exactly as published.\n\n" +
+    "window.ESG_DATA = " + JSON.stringify(payload, null, 2) + ";\n";
+}
+
+function profilePage(rows, company) {
+  return "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n" +
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n" +
+    "<title>" + company.replace(/[<>]/g, "") + " — ESG Profile</title>\n" +
+    "<style>\n" + decode("profile-css") + "\n</style>\n</head>\n<body>\n" +
+    PROFILE_BODY +
+    "\n<script>\n" + dataFile(rows, company) + "<\/script>\n" +
+    "<script>\n" + decode("profile-js") + "\n<\/script>\n</body>\n</html>\n";
+}
+
+var PROFILE_BODY = __PROFILE_BODY__;
+
+function download(name, text, type) {
+  var blob = new Blob([text], {type: type || "text/plain;charset=utf-8"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+}
+
+/* --- screens --------------------------------------------------------- */
+var STATE = null;
+
+function show(id) {
+  ["step-drop", "step-work", "step-review", "step-done"].forEach(function (s) {
+    $(s).classList.toggle("on", s === id);
+  });
+  window.scrollTo(0, 0);
+}
+function log(msg) { $("log").textContent += msg + "\n"; }
+function progress(frac) { $("bar").style.width = Math.round(frac * 100) + "%"; }
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderReview() {
+  var host = $("review");
+  host.innerHTML = "";
+  STATE.indicators.forEach(function (ind, ii) {
+    var el = document.createElement("div");
+    el.className = "ind" + (ind.status === "approved" ? " approved" :
+                            ind.status === "excluded" ? " excluded" : "");
+    var figs = ind.figures.map(function (f, fi) {
+      return "<tr" + (f.dropped ? " style='opacity:.4'" : "") + ">" +
+        "<td><input data-i='" + ii + "' data-f='" + fi + "' data-k='measure' value='" +
+          esc(f.measure).replace(/'/g, "&#39;") + "'></td>" +
+        "<td class='n'><input data-i='" + ii + "' data-f='" + fi + "' data-k='raw' value='" +
+          esc(f.raw) + "'></td>" +
+        "<td><input data-i='" + ii + "' data-f='" + fi + "' data-k='unit' value='" +
+          esc(f.unit) + "'></td>" +
+        "<td>" + esc(f.year) + "</td>" +
+        "<td class='pg'>p." + f.page + "</td>" +
+        "<td class='" + (f.confidence < 0.8 ? "low" : "") + "'>" +
+          (f.source === "table" ? "table" : "text") + "</td>" +
+        "<td><button class='pill" + (f.dropped ? " off" : "") +
+          "' data-drop='" + ii + ":" + fi + "'>" +
+          (f.dropped ? "excluded" : "drop") + "</button></td></tr>";
+    }).join("");
+    el.innerHTML =
+      "<header><span class='code'>" + esc(ind.code) + "</span>" +
+      "<h3>" + esc(ind.question) + "</h3>" +
+      "<span class='pg'>page " + ind.page + "</span></header>" +
+      (ind.figures.length
+        ? "<table><thead><tr><th>Measure</th><th>Value</th><th>Unit</th>" +
+          "<th>Year</th><th>Page</th><th>Read from</th><th></th></tr></thead>" +
+          "<tbody>" + figs + "</tbody></table>"
+        : "<div class='none'>No figures found in this answer.</div>") +
+      (ind.narrative ? "<details><summary>Show the text it read</summary><p>" +
+        esc(ind.narrative.slice(0, 3000)) + "</p></details>" : "") +
+      "<footer><span>" + ind.block + " indicator · Principle " + ind.principle +
+      "</span>" +
+      "<button class='pill" + (ind.status === "approved" ? " on" : "") +
+        "' data-ok='" + ii + "'>" +
+        (ind.status === "approved" ? "✓ approved" : "Approve") + "</button>" +
+      "<button class='pill" + (ind.status === "excluded" ? " off" : "") +
+        "' data-no='" + ii + "'>" +
+        (ind.status === "excluded" ? "excluded" : "Exclude") + "</button></footer>";
+    host.appendChild(el);
+  });
+  refreshCounts();
+}
+
+function refreshCounts() {
+  var figs = 0, low = 0, left = 0;
+  STATE.indicators.forEach(function (i) {
+    i.figures.forEach(function (f) {
+      if (f.dropped) return;
+      figs++; if (f.confidence < 0.8) low++;
+    });
+    if (i.status === "pending") left++;
+  });
+  $("s-ind").textContent = STATE.indicators.length;
+  $("s-fig").textContent = figs;
+  $("s-low").textContent = low;
+  $("s-left").textContent = left;
+  var anyApproved = STATE.indicators.some(function (i) { return i.status === "approved"; });
+  $("generate").disabled = (left > 0) || !anyApproved;
+}
+
+$("review").addEventListener("click", function (ev) {
+  var t = ev.target;
+  if (t.dataset.ok !== undefined) {
+    var i = STATE.indicators[t.dataset.ok];
+    i.status = i.status === "approved" ? "pending" : "approved";
+    renderReview();
+  } else if (t.dataset.no !== undefined) {
+    var j = STATE.indicators[t.dataset.no];
+    j.status = j.status === "excluded" ? "pending" : "excluded";
+    renderReview();
+  } else if (t.dataset.drop) {
+    var parts = t.dataset.drop.split(":");
+    var f = STATE.indicators[parts[0]].figures[parts[1]];
+    f.dropped = !f.dropped;
+    renderReview();
+  }
+});
+
+$("review").addEventListener("input", function (ev) {
+  var t = ev.target;
+  if (!t.dataset || t.dataset.k === undefined) return;
+  var f = STATE.indicators[t.dataset.i].figures[t.dataset.f];
+  if (t.dataset.k === "raw") {
+    var parsed = parseNumber(t.value);
+    if (parsed) { f.value = parsed.value; f.raw = parsed.raw; }
+  } else {
+    f[t.dataset.k] = t.value;
+  }
+  f.edited = true;
+});
+
+$("approve-all").addEventListener("click", function () {
+  STATE.indicators.forEach(function (i) {
+    if (i.status === "pending") i.status = "approved";
+  });
+  renderReview();
+});
+
+$("generate").addEventListener("click", function () {
+  var rows = buildRows(STATE);
+  var company = STATE.company;
+  STATE.pageHtml = profilePage(rows, company);
+  STATE.dataJs = dataFile(rows, company);
+  var figs = rows.reduce(function (a, r) { return a + r.metrics.length; }, 0);
+  $("done-sub").textContent = rows.length + " disclosures, " + figs +
+    " figures, from " + STATE.filename + ".";
+  $("done-note").innerHTML = "<strong>This is the BRSR section only</strong> — " +
+    "roughly a fifth of a full ESG profile. Board biographies, awards, ratings, " +
+    "memberships and corporate information are not in the BRSR and are not " +
+    "included here.";
+  $("preview").srcdoc = STATE.pageHtml;
+  show("step-done");
+});
+
+$("dl-page").addEventListener("click", function () {
+  download(slug(STATE.company) + "-esg-profile.html", STATE.pageHtml, "text/html");
+});
+$("dl-data").addEventListener("click", function () {
+  download("disclosures.js", STATE.dataJs, "text/javascript");
+});
+$("again").addEventListener("click", function () {
+  STATE = null; $("log").textContent = ""; progress(0); show("step-drop");
+});
+
+function slug(s) {
+  return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "").slice(0, 40) || "company";
+}
+
+/* --- running it ------------------------------------------------------ */
+function guessCompany(pages) {
+  for (var i = 0; i < Math.min(pages.length, 4); i++) {
+    var lines = pages[i];
+    for (var j = 0; j < Math.min(lines.length, 12); j++) {
+      var t = lines[j].text.trim();
+      if (/limited|ltd\.?$|plc$/i.test(t) && t.length < 70) return t;
+    }
+  }
+  return "Company";
+}
+
+function handleFile(file) {
+  if (!file) return;
+  if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") {
+    show("step-drop");
+    alert("That does not look like a PDF. Please choose the report as a PDF file.");
+    return;
+  }
+  show("step-work");
+  $("log").textContent = "";
+  progress(0.02);
+  log("Opening " + file.name + " …");
+
+  file.arrayBuffer().then(function (buf) {
+    return loadPdfJs().then(function (lib) {
+      return lib.getDocument({data: buf, disableFontFace: true}).promise;
+    });
+  }).then(function (doc) {
+    log(doc.numPages + " pages.");
+    var pages = [];
+    var seq = Promise.resolve();
+    for (var p = 1; p <= doc.numPages; p++) {
+      (function (n) {
+        seq = seq.then(function () {
+          return doc.getPage(n).then(function (page) {
+            return page.getTextContent().then(function (c) {
+              pages[n - 1] = pageLines(c);
+              if (n % 10 === 0 || n === doc.numPages) {
+                progress(0.05 + 0.8 * n / doc.numPages);
+                $("work-title").textContent = "Reading page " + n + " of " + doc.numPages;
+              }
+            });
+          });
+        });
+      })(p);
+    }
+    return seq.then(function () { return pages; });
+  }).then(function (pages) {
+    $("work-title").textContent = "Finding the BRSR section…";
+    progress(0.9);
+    var result = extract(pages, log);
+    result.filename = file.name;
+    result.company = guessCompany(pages);
+    progress(1);
+
+    if (result.problems.length) {
+      result.problems.forEach(function (p) { log("PROBLEM: " + p); });
+    }
+    if (!result.indicators.length) {
+      show("step-drop");
+      $("step-drop").insertAdjacentHTML("beforeend",
+        "<div class='err'><strong>No BRSR indicators were found in that PDF.</strong> " +
+        "This reads the Business Responsibility and Sustainability Report section, " +
+        "which is identified by its <em>Section C</em> and <em>Principle 1–9</em> " +
+        "headings. If the report is a scan rather than digital text, no text can be " +
+        "read from it at all.</div>");
+      return;
+    }
+    STATE = result;
+    renderReview();
+    show("step-review");
+  }).catch(function (err) {
+    show("step-drop");
+    $("step-drop").insertAdjacentHTML("beforeend",
+      "<div class='err'><strong>That PDF could not be read.</strong> " +
+      esc(err && err.message ? err.message : String(err)) + "</div>");
+  });
+}
+
+var drop = $("drop");
+["dragenter", "dragover"].forEach(function (e) {
+  drop.addEventListener(e, function (ev) {
+    ev.preventDefault(); drop.classList.add("hot");
+  });
+});
+["dragleave", "drop"].forEach(function (e) {
+  drop.addEventListener(e, function (ev) {
+    ev.preventDefault(); drop.classList.remove("hot");
+  });
+});
+drop.addEventListener("drop", function (ev) {
+  handleFile(ev.dataTransfer.files && ev.dataTransfer.files[0]);
+});
+$("pick").addEventListener("click", function () { $("file").click(); });
+$("file").addEventListener("change", function () { handleFile(this.files[0]); });
+
+// Exposed so tools/test_app.py can drive the same code the page uses.
+window.BRSR_INTERNALS = {
+  extract: extract, pageLines: pageLines, parseNumber: parseNumber,
+  buildRows: buildRows, buildSeries: buildSeries, loadPdfJs: loadPdfJs,
+  dataFile: dataFile, profilePage: profilePage,
+  state: function () { return STATE; }
+};
+})();
+</script>
+</body>
+</html>
