@@ -25,6 +25,7 @@ import base64
 import json
 import os
 import re
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -71,6 +72,33 @@ def profile_body():
     return body.strip()
 
 
+def check_syntax(path):
+    """Parse the app's own script before declaring the build good.
+
+    A bad edit once left a half-replaced function in the template. The
+    build still wrote a 2 MB file, the page loaded, and it simply never
+    finished reading a report — which is a miserable way to find out.
+    """
+    script = r"""
+      const fs = require('fs'), vm = require('vm');
+      const html = fs.readFileSync(process.argv[1], 'utf8');
+      const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+        .map(m => m[1]).filter(b => b.includes('BRSR_INTERNALS'));
+      if (!blocks.length) { console.error('app script not found'); process.exit(2); }
+      new vm.Script(blocks[0]);
+    """
+    try:
+        r = subprocess.run(["node", "-e", script, path],
+                           capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as exc:
+        print("WARNING: could not syntax-check the build (%s)." % exc)
+        return
+    if r.returncode != 0:
+        os.remove(path)
+        sys.exit("ERROR: the built app has a JavaScript error, so it was not "
+                 "kept:\n" + (r.stderr or "").strip()[:1500])
+
+
 def main():
     missing = [n for n in ("pdf.min.js", "pdf.worker.min.js")
                if not os.path.exists(os.path.join(VENDOR, n))]
@@ -109,6 +137,7 @@ def main():
     with open(OUT, "w", encoding="utf-8") as fh:
         fh.write(out)
 
+    check_syntax(OUT)
     print("Wrote %s  (%.1f MB)" % (OUT, os.path.getsize(OUT) / 1048576.0))
     print("Open it by double-clicking. It works offline and uploads nothing.")
 

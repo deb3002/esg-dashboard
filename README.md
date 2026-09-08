@@ -32,8 +32,14 @@ Long narrative text is shortened to about four lines with a **Show more** link. 
 
 ## The report-to-profile app
 
-**`brsr-app.html`** — double-click it. Drop in a BRSR or sustainability
-report PDF, check what it read, and it gives you the profile page.
+**`brsr-app.html`** — double-click it. Drop in a **BRSR or a GRI
+sustainability report** PDF, check what it read, and it gives you the
+profile page.
+
+It works out which kind of report you gave it. A BRSR is recognised by its
+Section C and Principle headings; a GRI report by its content index. You
+don't have to say which.
+
 
 Nothing is uploaded anywhere. The report is read inside the page, on your
 own computer, with no internet connection needed. You can hand the file to
@@ -52,6 +58,28 @@ How it goes:
 3. **Press Generate.** You get a preview, plus two downloads: the finished
    profile page as a single HTML file, and the data file if you would
    rather drop it into the existing viewer.
+
+### Reading a GRI report
+
+A BRSR is a form, so its questions are found by position. A GRI report has
+no fixed shape, so the **GRI content index** is used instead — the table
+every GRI report carries listing each disclosure and where to find it.
+
+The index has no gridlines, but it does have columns: the disclosure code,
+its title and the answer each sit at their own position on the page, often
+in two panels side by side. Those positions are what the app splits on. It
+does **not** carry a copy of GRI's own list of disclosure titles, which
+keeps the licensing question out of the software.
+
+Measured against one real GRI report (QTS, 2025, 37 pages): **62
+disclosures across 13 GRI series**, 42 carrying narrative text, grouped
+onto the existing themes — 35 Governance, 14 Environment, 13 Social.
+
+Expect a GRI profile to be **lighter on figures than a BRSR one**. Most
+GRI reports put their numbers in charts and tables in the body and use the
+index only to point at them, and a report written "with reference to" the
+GRI Standards rather than "in accordance with" carries fewer disclosures
+to begin with.
 
 ### What you should not assume about it
 
@@ -126,6 +154,28 @@ each figure against the page number shown, and marked every indicator as
 This is deliberate. A missing figure is recoverable; a wrong emissions
 figure published under a client's name, next to a link to their audited
 annual report, is not.
+
+### Reading a GRI report
+
+A BRSR is a form, so its questions are found by position. A GRI report has
+no fixed shape, so the **GRI content index** is used instead — the table
+every GRI report carries listing each disclosure and where to find it.
+
+The index has no gridlines, but it does have columns: the disclosure code,
+its title and the answer each sit at their own position on the page, often
+in two panels side by side. Those positions are what the app splits on. It
+does **not** carry a copy of GRI's own list of disclosure titles, which
+keeps the licensing question out of the software.
+
+Measured against one real GRI report (QTS, 2025, 37 pages): **62
+disclosures across 13 GRI series**, 42 carrying narrative text, grouped
+onto the existing themes — 35 Governance, 14 Environment, 13 Social.
+
+Expect a GRI profile to be **lighter on figures than a BRSR one**. Most
+GRI reports put their numbers in charts and tables in the body and use the
+index only to point at them, and a report written "with reference to" the
+GRI Standards rather than "in accordance with" carries fewer disclosures
+to begin with.
 
 ### What you should not assume about it
 

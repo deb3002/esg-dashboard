@@ -741,8 +741,261 @@ function dedupe(figures) {
 }
 
 
+/* --- GRI reports ------------------------------------------------------
+   A BRSR is a form, so its questions can be found by position. A GRI
+   sustainability report is a designed document with no fixed shape — but
+   every report claiming to follow the GRI Standards carries a content
+   index, and that index is the anchor.
+
+   The index has no ruling lines. What it does have is columns: the
+   disclosure code sits at one x position, its title at another, and the
+   location or the answer itself further right, often in two side-by-side
+   panels across a wide page. Splitting on those positions avoids needing
+   a copy of GRI's own list of disclosure titles, which is a licensing
+   question rather than a technical one.
+   -------------------------------------------------------------------- */
+
+// "2.9", "2‑29", "306‑1", "3-2" — reports mix full stops with ordinary
+// and non-breaking hyphens, sometimes inside one document. Left alone,
+// "2‑29" reads as its own series.
+var RE_GRI_CODE = /^(\d{1,3})\s*[-.‐‑‒–]\s*(\d{1,3})$/;
+var RE_GRI_MARKER = /GRI\s+(content\s+)?index|Statement\s+of\s+use|in\s+accordance\s+with\s+the\s+GRI|with\s+reference\s+to\s+the\s+GRI/i;
+
+function normaliseCode(text) {
+  var m = RE_GRI_CODE.exec(String(text).replace(/\s+/g, ""));
+  return m ? m[1] + "-" + m[2] : null;
+}
+
+// GRI series map onto the profile's existing themes.
+function griTheme(series) {
+  var n = parseInt(series, 10);
+  if (n >= 300 && n < 400) return "Environment";
+  if (n >= 400 && n < 500) return "Social";
+  if (n >= 200 && n < 300) return "Governance";
+  return "Governance";           // GRI 2 and 3: general and material topics
+}
+
+// The index runs two panels side by side, so a line can hold left-panel
+// text and a right-panel code at once. Taking the line's first run alone
+// skipped every right-hand disclosure that shared a line.
+function firstRunIn(line, lo, hi) {
+  var runs = (line.runs || []).filter(function (r) {
+    return r.x >= lo && r.x < hi;
+  }).sort(function (a, b) { return a.x - b.x; });
+  return runs[0] || null;
+}
+
+function findGriIndex(pages) {
+  var counts = [], marker = null;
+  pages.forEach(function (pg, i) {
+    var lines = (pg || {}).lines || [];
+    var n = 0;
+    lines.forEach(function (l) {
+      // Any run that begins a disclosure counts, in either panel.
+      (l.runs || []).forEach(function (r) { if (normaliseCode(r.s)) n++; });
+      if (marker === null && RE_GRI_MARKER.test(l.text)) marker = i + 1;
+    });
+    counts[i] = n;
+  });
+  // The index is the run of pages carrying disclosure codes.
+  var first = -1, last = -1;
+  counts.forEach(function (n, i) {
+    if (n >= 2) { if (first < 0) first = i + 1; last = i + 1; }
+  });
+  return {marker: marker, from: first, to: last,
+          codesPerPage: counts.map(function (n, i) { return [i + 1, n]; })
+                              .filter(function (p) { return p[1]; })};
+}
+
+// Column positions, taken from where the codes and the text after them
+// actually sit rather than assumed.
+function griColumns(pages, from, to) {
+  var codeXs = [], panels = [];
+  for (var p = from; p <= to; p++) {
+    ((pages[p - 1] || {}).lines || []).forEach(function (l) {
+      (l.runs || []).forEach(function (r) {
+        if (normaliseCode(r.s)) codeXs.push(r.x);
+      });
+    });
+  }
+  if (!codeXs.length) return [];
+  codeXs.sort(function (a, b) { return a - b; });
+  // Cluster the code positions: one cluster per panel.
+  var clusters = [[codeXs[0]]];
+  for (var i = 1; i < codeXs.length; i++) {
+    if (codeXs[i] - clusters[clusters.length - 1].slice(-1)[0] > 120) clusters.push([]);
+    clusters[clusters.length - 1].push(codeXs[i]);
+  }
+  clusters = clusters.filter(function (c) { return c.length >= 2; });
+  clusters.forEach(function (c, i) {
+    var lo = Math.min.apply(null, c);
+    var next = (i + 1 < clusters.length) ? Math.min.apply(null, clusters[i + 1]) : 1e9;
+    panels.push({codeX: lo, endX: next});
+  });
+  return panels;
+}
+
+// Within a panel the answer always starts at the same x. Clustering
+// every word position finds nothing, because wrapped answer text fills
+// the page and leaves no gap. The code lines do show it: on those, the
+// jump from the end of the title to the start of the answer is the
+// widest gap, and the same x wins on line after line.
+function answerColumn(pages, from, to, panel) {
+  var votes = {};
+  for (var p = from; p <= to; p++) {
+    ((pages[p - 1] || {}).lines || []).forEach(function (l) {
+      var runs = (l.runs || []).filter(function (r) {
+        return r.x >= panel.codeX - 6 && r.x < panel.endX;
+      }).sort(function (a, b) { return a.x - b.x; });
+      if (!runs.length || !normaliseCode(runs[0].s)) return;
+      var bestGap = 0, bestX = null;
+      for (var i = 1; i < runs.length; i++) {
+        var gap = runs[i].x - runs[i - 1].x;
+        if (gap > bestGap && runs[i].x - panel.codeX > 80) {
+          bestGap = gap; bestX = runs[i].x;
+        }
+      }
+      if (bestX !== null && bestGap > 30) {
+        var key = Math.round(bestX / 6) * 6;
+        votes[key] = (votes[key] || 0) + 1;
+      }
+    });
+  }
+  var best = null, bestN = 0;
+  Object.keys(votes).forEach(function (k) {
+    if (votes[k] > bestN) { bestN = votes[k]; best = Number(k); }
+  });
+  return (bestN >= 2) ? best - 4 : panel.codeX + 250;
+}
+
+function parseGriIndex(pages, from, to, panels) {
+  var out = [];
+  for (var p = from; p <= to; p++) {
+    var pg = pages[p - 1];
+    if (!pg) continue;
+    var runs = [];
+    (pg.lines || []).forEach(function (l) {
+      (l.runs || []).forEach(function (r) { runs.push({x: r.x, y: l.y, s: r.s}); });
+    });
+
+    panels.forEach(function (panel) {
+      var answerX = panel.answerX;
+      // Every disclosure code in this panel, top of page first.
+      var marks = [];
+      (pg.lines || []).forEach(function (l) {
+        var r0 = firstRunIn(l, panel.codeX - 6, panel.endX);
+        if (!r0) return;
+        var code = normaliseCode(r0.s);
+        if (code) marks.push({code: code, y: l.y, line: l});
+      });
+      marks.sort(function (a, b) { return b.y - a.y; });
+
+      marks.forEach(function (mk, i) {
+        var lowerY = (i + 1 < marks.length) ? marks[i + 1].y : -1e9;
+        var title = [], body = [];
+        runs.forEach(function (r) {
+          if (r.x < panel.codeX - 6 || r.x >= panel.endX) return;
+          if (r.y > mk.y + 2 || r.y <= lowerY + 1) return;
+          if (r.x >= answerX - 6) { body.push(r); return; }
+          // The code itself is not part of the title.
+          if (r.y > mk.y - 2 && normaliseCode(r.s)) return;
+          title.push(r);
+        });
+        function join(list) {
+          return list.sort(function (a, b) { return (b.y - a.y) || (a.x - b.x); })
+            .map(function (r) { return r.s; }).join(" ")
+            .replace(/\s+/g, " ").trim();
+        }
+        out.push({code: mk.code, series: mk.code.split("-")[0],
+                  title: join(title), text: join(body), page: p});
+      });
+    });
+  }
+  // Same code twice (a continuation) merges rather than duplicating.
+  var byCode = {}, order = [];
+  out.forEach(function (d) {
+    if (!byCode[d.code]) { byCode[d.code] = d; order.push(d.code); }
+    else {
+      if (d.title && !byCode[d.code].title) byCode[d.code].title = d.title;
+      if (d.text) byCode[d.code].text += " " + d.text;
+    }
+  });
+  return order.map(function (c) { return byCode[c]; });
+}
+
+// GRI answers report figures as prose: "Purchased Renewable Energy
+// (MWh): 1,316,420" or "Scope 1 emissions: 12,345 tCO2e".
+var RE_GRI_FIGURE =
+  /([A-Z][A-Za-z0-9 ,'()\/&+.-]{2,70}?)\s*(?:\(([^)]{1,20})\))?\s*:\s*(-?\d[\d,]*(?:\.\d+)?)\s*([A-Za-z%µ][A-Za-z0-9%\/²³ .-]{0,14})?/g;
+
+function griFigures(text, page) {
+  var out = [], m;
+  RE_GRI_FIGURE.lastIndex = 0;
+  while ((m = RE_GRI_FIGURE.exec(text)) !== null) {
+    var value = parseFloat(m[3].replace(/,/g, ""));
+    if (isNaN(value)) continue;
+    // A word after the number is only a unit if it reads like one.
+    // "1,903 permanent" was reading "permanent" as a unit.
+    var unit = (m[2] || "").trim();
+    if (!unit) {
+      var tail = (m[4] || "").trim().replace(/[.,;]$/, "");
+      unit = (tail && (UNIT_WORDS.test(tail) || /^[%µ]/.test(tail) ||
+              /^(MWh|GWh|kWh|MT|tCO2e?|GJ|MJ|m3|KL|ML)$/i.test(tail))) ? tail : "";
+    }
+    if (unit.length > 14) unit = "";
+    out.push({
+      measure: m[1].replace(/\s+/g, " ").trim().slice(0, 90),
+      value: value, raw: m[3], unit: unit, year: "",
+      page: page, source: "narrative", confidence: 0.65
+    });
+  }
+  return out;
+}
+
+function extractGri(pages, onLog) {
+  var loc = findGriIndex(pages);
+  var problems = [];
+  if (loc.from < 0) {
+    problems.push("No GRI content index found.");
+    return {located: loc, problems: problems, indicators: []};
+  }
+  var panels = griColumns(pages, loc.from, loc.to);
+  panels.forEach(function (panel) {
+    panel.answerX = answerColumn(pages, loc.from, loc.to, panel);
+  });
+  if (!panels.length) {
+    problems.push("The GRI index was found but its columns could not be read.");
+    return {located: loc, problems: problems, indicators: []};
+  }
+  if (onLog) {
+    onLog("GRI content index: pages " + loc.from + "–" + loc.to +
+          ", " + panels.length + " column block(s)");
+  }
+
+  var entries = parseGriIndex(pages, loc.from, loc.to, panels);
+  var indicators = entries.map(function (d) {
+    // Figures come from the answer text, and from any ruled table on the
+    // page the answer points at.
+    var figs = griFigures(d.text, d.page);
+    return {
+      code: "GRI " + d.code,
+      griCode: d.code,
+      series: d.series,
+      principle: null,
+      block: "GRI " + d.series,
+      question: d.title || ("GRI " + d.code),
+      page: d.page,
+      narrative: d.text,
+      figures: dedupe(figs),
+      status: "pending"
+    };
+  });
+  if (onLog) onLog(entries.length + " disclosures listed in the index");
+  return {located: loc, problems: problems, indicators: indicators, kind: "gri"};
+}
+
 /* --- the whole extraction ------------------------------------------- */
-function extract(pages, onLog) {
+function extractBrsr(pages, onLog) {
   var loc = locate(pages);
   var problems = [];
   if (loc.sectionC === null) problems.push("No 'SECTION C' heading found.");
@@ -777,7 +1030,19 @@ function extract(pages, onLog) {
       }
     });
 
-  return {located: loc, problems: problems, indicators: indicators};
+  return {located: loc, problems: problems, indicators: indicators, kind: "brsr"};
+}
+
+// A BRSR is recognised by its Section C and Principle headings; a GRI
+// report by its content index. Whichever yields disclosures wins, so the
+// person dropping the file does not have to say which kind it is.
+function extract(pages, onLog) {
+  var brsr = extractBrsr(pages, onLog);
+  if (brsr.indicators.length) return brsr;
+  if (onLog) onLog("No BRSR section found — looking for a GRI content index…");
+  var gri = extractGri(pages, onLog);
+  if (gri.indicators.length) return gri;
+  return brsr.indicators.length >= gri.indicators.length ? brsr : gri;
 }
 
 /* --- profile rows ---------------------------------------------------- */
@@ -891,7 +1156,37 @@ function buildRows(state) {
         };
       });
     var built = seriesFromFigures(ind.figures.filter(function (f) { return !f.dropped; }));
-    var frameworks = [{
+    var frameworks;
+    if (ind.griCode) {
+      // A GRI report states its own disclosure numbers, so the tag is
+      // taken from the report rather than derived from anything.
+      frameworks = [{
+        name: "GRI", detail: ind.griCode, full: "GRI " + ind.griCode,
+        indicator: "GRI " + ind.griCode, level: "reported", verified: true,
+        source: "The report's own GRI content index"
+      }];
+      ifcFrom("GRI " + ind.griCode).forEach(function (ps) {
+        frameworks.push({
+          name: "IFC", detail: ps + " · by GRI alignment", ps: ps,
+          full: ps + " " + (IFC_NAMES[ps] || ""),
+          level: "alignment", verified: false, source: IFC_SOURCE
+        });
+      });
+      rows.push({
+        theme: griTheme(ind.series),
+        category: "GRI " + ind.series,
+        subfactor: (ind.question || ind.code).slice(0, 120),
+        keywords: ["GRI", "GRI " + ind.series],
+        documents: [{label: state.filename + " (Page " + ind.page + ")", url: null}],
+        metrics: metrics,
+        frameworks: frameworks,
+        series: built.series,
+        standalone: built.standalone,
+        highlights: ind.narrative
+      });
+      return;
+    }
+    frameworks = [{
       name: "BRSR",
       detail: ind.code + " · Principle " + ind.principle + " · " + ind.block,
       indicator: ind.code, verified: true, source: SEBI_SOURCE
@@ -1116,15 +1411,41 @@ function slug(s) {
 }
 
 /* --- running it ------------------------------------------------------ */
-function guessCompany(pages) {
+// Indian filings name the company on the cover; a GRI report often does
+// not, so the document's own title is used before falling back.
+function guessCompany(pages, meta, filename) {
   for (var i = 0; i < Math.min(pages.length, 4); i++) {
     var lines = (pages[i] || {}).lines || [];
     for (var j = 0; j < Math.min(lines.length, 12); j++) {
       var t = lines[j].text.trim();
-      if (/limited|ltd\.?$|plc$/i.test(t) && t.length < 70) return t;
+      if (/\b(limited|ltd\.?|plc|inc\.?|corp(oration)?|llc|gmbh|a\.?g\.?|n\.?v\.?|s\.?a\.?)\s*$/i.test(t)
+          && t.length < 70) return t;
     }
   }
-  return "Company";
+  var title = (meta && meta.info && meta.info.Title || "").trim();
+  if (title && title.length < 80) {
+    // "QTS 2025 Sustainability Report" -> "QTS"
+    var cut = title.replace(/\b(19|20)\d{2}\b.*$/, "")
+      .replace(/\b(sustainability|esg|annual|integrated|corporate)\b.*$/i, "").trim()
+      .replace(/[-–—:,]+$/, "").trim();
+    if (cut.length >= 2) return cut;
+    return title;
+  }
+  // "QTS2025SustainabilityReport.pdf" has no spaces at all, so the words
+  // are separated before anything is stripped — otherwise the year hides
+  // against the letter before it and survives.
+  var stem = String(filename || "").replace(/\.pdf$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([A-Za-z])(\d)/g, "$1 $2")
+    .replace(/(\d)([A-Za-z])/g, "$1 $2")
+    .replace(/(19|20)\d{2}[-\/]?\d*.*$/, "")
+    .replace(/\b(sustainability|esg|annual|integrated|corporate|report)\b.*$/i, "")
+    .replace(/\s+/g, " ").trim();
+  if (stem.length < 2) return "Company";
+  return stem.split(" ").map(function (w) {
+    return /^[A-Z]{2,}$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1);
+  }).join(" ");
 }
 
 function handleFile(file) {
@@ -1139,7 +1460,7 @@ function handleFile(file) {
   progress(0.02);
   log("Opening " + file.name + " …");
 
-  var LIB = null;
+  var LIB = null, DOC_META = null;
   file.arrayBuffer().then(function (buf) {
     return loadPdfJs().then(function (lib) {
       LIB = lib;
@@ -1147,6 +1468,7 @@ function handleFile(file) {
     });
   }).then(function (doc) {
     log(doc.numPages + " pages.");
+    doc.getMetadata().then(function (m) { DOC_META = m; }, function () {});
     var pages = [];
     var seq = Promise.resolve();
     for (var p = 1; p <= doc.numPages; p++) {
@@ -1184,11 +1506,11 @@ function handleFile(file) {
     }
     return seq.then(function () { return pages; });
   }).then(function (pages) {
-    $("work-title").textContent = "Finding the BRSR section…";
+    $("work-title").textContent = "Finding the disclosures…";
     progress(0.9);
     var result = extract(pages, log);
     result.filename = file.name;
-    result.company = guessCompany(pages);
+    result.company = guessCompany(pages, DOC_META, file.name);
     progress(1);
 
     if (result.problems.length) {
@@ -1238,6 +1560,8 @@ window.BRSR_INTERNALS = {
   buildRows: buildRows, buildSeries: buildSeries, loadPdfJs: loadPdfJs,
   dataFile: dataFile, profilePage: profilePage,
   pageSegments: pageSegments, groupTables: groupTables, gridRows: gridRows,
+  extractGri: extractGri, findGriIndex: findGriIndex, griColumns: griColumns,
+  parseGriIndex: parseGriIndex, griFigures: griFigures, normaliseCode: normaliseCode,
   figuresFromTable: figuresFromTable,
   state: function () { return STATE; }
 };
