@@ -41,7 +41,10 @@ a client and it will work the same way on their machine.
 
 How it goes:
 
-1. **Drop the PDF in.** It finds the BRSR section inside the annual report.
+1. **Drop the PDF in.** It finds the BRSR section inside the annual report,
+   and reads each table from its printed gridlines — so a year heading that
+   spans three columns, and rows whose label is merged from the row above,
+   both come out right.
 2. **Check what it read.** Every figure is listed with the page it came
    from, so you can check it against the report. Type over anything wrong,
    drop a figure, or exclude a whole indicator. Nothing is generated until
@@ -52,10 +55,15 @@ How it goes:
 
 ### What you should not assume about it
 
-- **Its accuracy on real filings is unmeasured.** It has been tested end to
-  end in a browser against a report built from data we already had, which
-  proves the machinery works — not that it reads real reports well.
-  Measuring that properly is what `phase3-spike-brief.md` describes.
+- **Its accuracy on real filings is only partly measured.** It has been run
+  against one real filed BRSR (42 pages). It found all nine principles, split
+  them into 91 indicators, and read 194 figures with their years, units and
+  page numbers. Spot-checked tables came out correct. That is one report, not
+  a measured accuracy rate — `phase3-spike-brief.md` still describes the
+  proper measurement.
+- **Some tables still yield nothing.** 21 of the 91 indicators produced
+  figures. Tables whose layout it cannot read are skipped rather than
+  guessed at, so the risk is a missing figure, not a wrong one.
 - **It reads digital text only.** A scanned report contains pictures of
   words, and no text can be pulled from it at all. The app says so rather
   than producing an empty profile.

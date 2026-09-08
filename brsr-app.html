@@ -251,8 +251,9 @@ var RE_YEAR_COL = /FY\s*[-–]?\s*(\d{4})/i;
 
 function locate(pages) {
   var sectionC = null, seen = {}, ordered = [];
-  pages.forEach(function (lines, i) {
+  pages.forEach(function (pg, i) {
     var n = i + 1;
+    var lines = pg.lines || [];
     var joined = lines.map(function (l) { return l.text; }).join("\n");
     if (sectionC === null && RE_SECTION_C.test(joined)) sectionC = n;
     lines.forEach(function (l) {
@@ -279,7 +280,7 @@ function locate(pages) {
 function splitPrinciple(pages, principle, start, end) {
   var marks = [], block = null;
   for (var p = start; p <= end; p++) {
-    var lines = pages[p - 1] || [];
+    var lines = (pages[p - 1] || {}).lines || [];
     for (var i = 0; i < lines.length; i++) {
       var t = lines[i].text;
       if (RE_ESSENTIAL.test(t)) { block = "E"; continue; }
@@ -287,7 +288,7 @@ function splitPrinciple(pages, principle, start, end) {
       var m = RE_QUESTION.exec(t);
       if (m && block) {
         marks.push({n: parseInt(m[1], 10), block: block, page: p,
-                    idx: i, stub: m[2].trim()});
+                    y: lines[i].y, stub: m[2].trim()});
       }
     }
   }
@@ -299,78 +300,347 @@ function splitPrinciple(pages, principle, start, end) {
       block: mk.block === "E" ? "Essential" : "Leadership",
       question: mk.stub,
       page: mk.page,
-      from: {page: mk.page, idx: mk.idx},
-      to: nxt ? {page: nxt.page, idx: nxt.idx} : {page: end, idx: 1e9}
+      from: {page: mk.page, y: mk.y},
+      to: nxt ? {page: nxt.page, y: nxt.y} : {page: end, y: -1e9}
     };
   });
 }
 
-function linesFor(pages, ind) {
-  var out = [];
+// An indicator owns everything between its question line and the next
+// one. Positions are vertical, not line counts, because a table has to be
+// matched to the question it sits under.
+function contentFor(pages, ind) {
+  var narrative = [], tables = [];
   for (var p = ind.from.page; p <= ind.to.page; p++) {
-    var lines = pages[p - 1] || [];
-    var lo = (p === ind.from.page) ? ind.from.idx + 1 : 0;
-    var hi = (p === ind.to.page) ? ind.to.idx : lines.length;
-    for (var i = lo; i < hi && i < lines.length; i++) {
-      out.push({page: p, line: lines[i]});
-    }
+    var pg = pages[p - 1];
+    if (!pg) continue;
+    var hi = (p === ind.from.page) ? ind.from.y - 1 : 1e9;   // below the question
+    var lo = (p === ind.to.page) ? ind.to.y : -1e9;          // above the next
+
+    (pg.tables || []).forEach(function (t) {
+      if (t.top <= hi && t.top > lo) tables.push({page: p, rows: t.rows, top: t.top});
+    });
+
+    (pg.lines || []).forEach(function (line) {
+      if (line.y > hi || line.y <= lo) return;
+      // Lines inside a table are read as cells; repeating them as prose
+      // made every figure appear twice.
+      var inTable = (pg.tables || []).some(function (t) {
+        return line.y <= t.top + 2 && line.y >= t.bottom - 2;
+      });
+      if (!inTable) narrative.push(line.text);
+    });
   }
-  return out;
+  return {
+    narrative: narrative.join(" ").replace(/\s+/g, " ").trim(),
+    tables: tables
+  };
 }
 
 /* --- figures --------------------------------------------------------- */
-// A BRSR table is a header row naming the years, then rows of label +
-// one value per year. Columns are found by x position, because pdf.js
-// reports text runs and not cells.
-function figuresFromRows(rows) {
-  var figures = [], cols = null, usedLines = {};
+// A filed BRSR draws its tables with real gridlines, and reading those is
+// the difference between the right number and a plausible-looking wrong
+// one. Guessing columns from where text sits horizontally collapses on
+// the layout SEBI's format actually uses:
+//
+//   Category            | FY 2023-24                 | FY 2022-23
+//                       | Total (A) | Union (B) | %  | Total (C) | ...
+//   Permanent Employees |     2,485 |         0 |  0 |     2,354 | ...
+//                       |     2,430 |         0 |  0 |     2,304 | ...   <- Male
+//
+// One year spans three columns, and the Male/Female rows inherit their
+// label from the merged cell above. 74 of the 92 tables in the sample
+// report do the latter.
 
-  rows.forEach(function (entry, ri) {
-    var line = entry.line, hits = [];
-    line.runs.forEach(function (r) {
-      var m = RE_YEAR_COL.exec(r.s);
-      if (m) hits.push({year: m[1], x: r.x});
-    });
-    if (hits.length >= 2) {
-      cols = hits;                       // a header row: remember the columns
-      usedLines[ri] = true;
-      return;
+// Table cells are not drawn consistently: some pages draw a rectangle per
+// cell, others draw full-width row bands plus separators. Assuming either
+// shape fragments the table. What is always true is that the horizontal
+// and vertical rules exist, so the grid is rebuilt from those — the same
+// approach the desktop library takes.
+function pageSegments(ops, OPS) {
+  function mul(m1, m2) {
+    return [m1[0] * m2[0] + m1[2] * m2[1], m1[1] * m2[0] + m1[3] * m2[1],
+            m1[0] * m2[2] + m1[2] * m2[3], m1[1] * m2[2] + m1[3] * m2[3],
+            m1[0] * m2[4] + m1[2] * m2[5] + m1[4],
+            m1[1] * m2[4] + m1[3] * m2[5] + m1[5]];
+  }
+  function ap(m, x, y) { return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }
+
+  var ctm = [1, 0, 0, 1, 0, 0], stack = [], h = [], v = [];
+  function seg(p1, p2) {
+    var x0 = Math.min(p1[0], p2[0]), x1 = Math.max(p1[0], p2[0]);
+    var y0 = Math.min(p1[1], p2[1]), y1 = Math.max(p1[1], p2[1]);
+    if (y1 - y0 <= 1.6 && x1 - x0 > 4) h.push({y: (y0 + y1) / 2, x0: x0, x1: x1});
+    else if (x1 - x0 <= 1.6 && y1 - y0 > 4) v.push({x: (x0 + x1) / 2, y0: y0, y1: y1});
+  }
+  function rect(p1, p2) {
+    var x0 = Math.min(p1[0], p2[0]), x1 = Math.max(p1[0], p2[0]);
+    var y0 = Math.min(p1[1], p2[1]), y1 = Math.max(p1[1], p2[1]);
+    seg([x0, y0], [x1, y0]); seg([x0, y1], [x1, y1]);
+    seg([x0, y0], [x0, y1]); seg([x1, y0], [x1, y1]);
+  }
+
+  for (var i = 0; i < ops.fnArray.length; i++) {
+    var fn = ops.fnArray[i], a = ops.argsArray[i];
+    if (fn === OPS.save) { stack.push(ctm.slice()); }
+    else if (fn === OPS.restore) { ctm = stack.pop() || [1, 0, 0, 1, 0, 0]; }
+    else if (fn === OPS.transform) { ctm = mul(ctm, a); }
+    else if (fn === OPS.constructPath) {
+      var pops = a[0], co = a[1], k = 0, cur = null;
+      for (var j = 0; j < pops.length; j++) {
+        var op = pops[j];
+        if (op === OPS.rectangle) {
+          rect(ap(ctm, co[k], co[k + 1]),
+               ap(ctm, co[k] + co[k + 2], co[k + 1] + co[k + 3]));
+          k += 4;
+        } else if (op === OPS.moveTo) {
+          cur = ap(ctm, co[k], co[k + 1]); k += 2;
+        } else if (op === OPS.lineTo) {
+          var nx = ap(ctm, co[k], co[k + 1]); k += 2;
+          if (cur) seg(cur, nx);
+          cur = nx;
+        } else if (op === OPS.curveTo) { k += 6; cur = null; }
+        else if (op === OPS.curveTo2 || op === OPS.curveTo3) { k += 4; cur = null; }
+      }
     }
-    if (!cols) return;
+  }
+  return {h: h, v: v};
+}
 
-    var label = [], values = [];
-    line.runs.forEach(function (r) {
-      var nearest = null, best = 1e9;
-      cols.forEach(function (c) {
-        var d = Math.abs(r.x - c.x);
-        if (d < best) { best = d; nearest = c; }
-      });
-      // A run left of the first column is label text; near a column and
-      // numeric, it is that year's value.
-      if (r.x < cols[0].x - 6) { label.push(r.s); }
-      else if (nearest && best < 90) { values.push({col: nearest, run: r}); }
-      else { label.push(r.s); }
-    });
+// Rules that touch belong to the same table.
+function groupTables(segs) {
+  var items = segs.h.map(function (s) { return {b: [s.x0, s.y, s.x1, s.y], h: s}; })
+    .concat(segs.v.map(function (s) { return {b: [s.x, s.y0, s.x, s.y1], v: s}; }));
+  var parent = items.map(function (_, i) { return i; });
+  function find(i) { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; }
+  function join(a, b) { a = find(a); b = find(b); if (a !== b) parent[b] = a; }
+  var T = 4;
+  for (var i = 0; i < items.length; i++) {
+    for (var j = i + 1; j < items.length; j++) {
+      var a = items[i].b, b = items[j].b;
+      if (a[0] <= b[2] + T && b[0] <= a[2] + T && a[1] <= b[3] + T && b[1] <= a[3] + T) join(i, j);
+    }
+  }
+  var groups = {};
+  items.forEach(function (it, i) { (groups[find(i)] = groups[find(i)] || []).push(it); });
 
-    var name = label.join(" ").replace(/\s+/g, " ").trim();
-    if (!name) return;
-    var perYear = {};
-    values.forEach(function (v) {
-      (perYear[v.col.year] = perYear[v.col.year] || []).push(v.run.s);
-    });
-    Object.keys(perYear).forEach(function (year) {
-      var parsed = parseNumber(perYear[year].join(" "));
-      if (!parsed) return;
-      figures.push({
-        measure: name, value: parsed.value, raw: parsed.raw,
-        unit: parsed.unit, year: year, page: entry.page,
-        source: "table", confidence: 0.9
-      });
-      usedLines[ri] = true;
-    });
+  return Object.keys(groups).map(function (k) {
+    var g = groups[k];
+    return {
+      h: g.filter(function (i) { return i.h; }).map(function (i) { return i.h; }),
+      v: g.filter(function (i) { return i.v; }).map(function (i) { return i.v; })
+    };
+  }).filter(function (g) { return g.h.length >= 3 && g.v.length >= 2; });
+}
+
+function cluster(values, tol) {
+  var sorted = values.slice().sort(function (a, b) { return a - b; });
+  var out = [];
+  sorted.forEach(function (val) {
+    if (!out.length || val - out[out.length - 1] > tol) out.push(val);
+    else out[out.length - 1] = (out[out.length - 1] + val) / 2;
   });
+  return out;
+}
 
-  return {figures: figures, used: usedLines};
+// The grid between consecutive rules is the set of cells. A cell merged
+// across columns simply leaves its neighbours blank, which the row-label
+// fill-down below already handles.
+function gridRows(group, runs) {
+  var ys = cluster(group.h.map(function (s) { return s.y; }), 3).reverse(); // top first
+  var xs = cluster(group.v.map(function (s) { return s.x; }), 3);
+  if (ys.length < 2 || xs.length < 2) return [];
+
+  var rows = [];
+  for (var r = 0; r + 1 < ys.length; r++) {
+    var top = ys[r], bottom = ys[r + 1];
+    if (top - bottom < 4) continue;
+    var cells = [];
+    for (var c = 0; c + 1 < xs.length; c++) {
+      var x0 = xs[c], x1 = xs[c + 1];
+      if (x1 - x0 < 4) continue;
+      var inside = runs.filter(function (t) {
+        return t.x >= x0 - 1 && t.x < x1 + 1 && t.y > bottom - 1 && t.y <= top + 1;
+      }).sort(function (a, b) { return (b.y - a.y) || (a.x - b.x); });
+      cells.push({
+        x0: x0, y0: bottom, x1: x1, y1: top,
+        text: inside.map(function (t) { return t.s; }).join(" ")
+                .replace(/\s+/g, " ").trim()
+      });
+    }
+    if (cells.length) rows.push({top: top, bottom: bottom, cells: cells});
+  }
+  return rows;
+}
+
+var RE_FY = /FY\s*[-–]?\s*(\d{4}(?:\s*[-–]\s*\d{2,4})?)/i;
+// Only treat a parenthetical as a unit when it reads like one. "(A)" and
+// "(B/A)" are column keys in SEBI's format, not units.
+var RE_UNIT = /\(([^)]{1,24})\)\s*$/;
+var UNIT_WORDS = /(kl|ml|mt|kg|tonne|tco2|co2e?|gj|mj|joule|kwh|mwh|litre|liter|cubic|rs\.?|inr|crore|lakh|million|%|percent|no\.|number|hours?|days?)/i;
+
+function unitFrom(text) {
+  if (!text) return "";
+  var m = RE_UNIT.exec(text.replace(/\s+/g, " ").trim());
+  if (!m) return "";
+  var inner = m[1].trim();
+  if (!UNIT_WORDS.test(inner)) return "";      // (A), (B/A), (D/C) are keys
+  return inner;
+}
+
+function stripUnit(text) {
+  return String(text || "").replace(/\s+/g, " ").trim()
+    .replace(/\s*\([^)]{1,24}\)\s*$/, "").trim();
+}
+
+// SEBI's column headings run to a full sentence. The trailing key —
+// (A), (B), (B/A) — is what tells two columns apart, so it is kept and
+// the prose is cut at a word boundary rather than mid-word.
+function shortHeader(text) {
+  var flat = String(text || "").replace(/\s+/g, " ").trim();
+  var key = /\(([A-Z](?:\s*\/\s*[A-Z])?)\)\s*$/.exec(flat);
+  var body = stripUnit(flat).replace(/[,;]?\s+(?:or|and|of|who|which)$/i, "").trim();
+  if (body.length > 48) {
+    body = body.slice(0, 48);
+    body = body.slice(0, Math.max(body.lastIndexOf(" "), 20)).replace(/[,;]$/, "") + "\u2026";
+  }
+  return key ? (body + " (" + key[1].replace(/\s+/g, "") + ")") : body;
+}
+
+// One table -> figures, using the year row and the sub-header beneath it.
+function figuresFromTable(rows, pageNo, carry) {
+  if (rows.length < 2) return [];
+
+  // The year row: cells naming a financial year. A year cell spans the
+  // sub-columns that sit beneath it, which is how three measures end up
+  // under one year.
+  var yearRowIdx = -1, years = [];
+  for (var i = 0; i < Math.min(rows.length, 4); i++) {
+    var found = rows[i].cells.filter(function (c) { return RE_FY.test(c.text); });
+    if (found.length >= 1 && found.length < rows[i].cells.length) {
+      yearRowIdx = i;
+      years = found.map(function (c) {
+        return {label: "FY " + RE_FY.exec(c.text)[1].replace(/\s+/g, ""),
+                x0: c.x0, x1: c.x1};
+      }).sort(function (a, b) { return a.x0 - b.x0; });
+      // A year heading spans the columns beneath it, so it runs from its
+      // own left edge until the next year begins.
+      years.forEach(function (y, i) {
+        y.x1 = (i + 1 < years.length) ? years[i + 1].x0 - 1 : 1e9;
+      });
+      break;
+    }
+  }
+  // Only 28 of the 92 tables in the sample report name a financial year.
+  // The rest still hold real figures, so they are read with the year left
+  // blank and flagged for a closer look. Guessing the year would be
+  // inventing data.
+  var undated = false, continued = false;
+  if (yearRowIdx < 0 || !years.length) {
+    // A long table continued on the next page repeats no header. If the
+    // previous table's columns line up, its header still applies — that
+    // is what "continued" means — so reuse it rather than losing the year.
+    if (carry && carry.years && rows.length &&
+        Math.abs(carry.width[0] - rows[0].cells[0].x0) < 6 &&
+        Math.abs(carry.width[1] - rows[0].cells[rows[0].cells.length - 1].x1) < 6) {
+      years = carry.years;
+      continued = true;
+    } else {
+      var head = rows[0];
+      var numeric = head.cells.filter(function (c) { return /\d/.test(c.text); }).length;
+      if (!head || head.cells.length < 2 || numeric > head.cells.length / 2) return [];
+      undated = true;
+      years = [{label: "", x0: -1e9, x1: 1e9}];
+    }
+    yearRowIdx = -1;
+  }
+
+  // The row under it names each column. Without one, every column under a
+  // year is the same measure and there is nothing to tell them apart.
+  // A sub-header row names columns, so it is mostly words. Counting only
+  // its width mistook the first row of data for headers whenever a table
+  // had no sub-header at all.
+  function looksLikeHeaders(row) {
+    if (!row || row.cells.length < 2) return false;
+    var filled = row.cells.filter(function (c) { return c.text; });
+    if (filled.length < 2) return false;
+    // Any digit marks a cell as data. "9.47 Joules" is a value, not a
+    // heading, and matching only bare numbers let it pass as one.
+    var numeric = filled.filter(function (c) { return /\d/.test(c.text); }).length;
+    return numeric <= filled.length / 3;
+  }
+
+  var subRow = continued ? null : (undated ? rows[0] : rows[yearRowIdx + 1]);
+  var subs = looksLikeHeaders(subRow) ? subRow.cells : (continued ? carry.subs : null);
+  var firstData = continued ? 0 : (undated ? 1 : yearRowIdx + (subs ? 2 : 1));
+
+  function yearFor(cell) {
+    var mid = (cell.x0 + cell.x1) / 2;
+    for (var i = 0; i < years.length; i++) {
+      if (mid >= years[i].x0 - 2 && mid <= years[i].x1 + 2) return years[i].label;
+    }
+    return null;
+  }
+  function subFor(cell) {
+    if (!subs) return "";
+    var mid = (cell.x0 + cell.x1) / 2, best = null, bestD = 1e9;
+    subs.forEach(function (s) {
+      var d = Math.abs((s.x0 + s.x1) / 2 - mid);
+      if (d < bestD && mid >= s.x0 - 4 && mid <= s.x1 + 4) { bestD = d; best = s; }
+    });
+    return best ? best.text : "";
+  }
+
+  var figures = [], lastLabel = "", seq = 0;
+  for (var r = firstData; r < rows.length; r++) {
+    var cells = rows[r].cells;
+    if (!cells.length) continue;
+
+    // The label is whatever sits left of the first year column, not
+    // simply the first cell: page margins add empty columns either side,
+    // and assuming cells[0] skipped every row of such a table.
+    var labelCells = cells.filter(function (c) {
+      return (c.x0 + c.x1) / 2 < years[0].x0 - 2;
+    });
+    if (!labelCells.length) labelCells = [cells[0]];
+    var labelCell = labelCells.filter(function (c) { return c.text; })[0] || labelCells[0];
+    var inherited = false;
+    var label = labelCells.map(function (c) { return c.text; })
+      .join(" ").replace(/\s+/g, " ").trim();
+    if (label && !RE_FY.test(label)) { lastLabel = label; seq = 0; }
+    else { label = lastLabel; inherited = true; seq++; }
+    if (!label) continue;
+
+    for (var c = 0; c < cells.length; c++) {
+      var cell = cells[c];
+      if (labelCells.indexOf(cell) >= 0) continue;
+      var year = yearFor(cell);
+      if (year === null) continue;
+      var parsed = parseNumber(cell.text);
+      if (!parsed) continue;
+
+      var sub = shortHeader(subFor(cell));
+      var unit = /%/.test(cell.text) ? "%"
+        : (unitFrom(subFor(cell)) || unitFrom(labelCell.text) || "");
+      var measure = stripUnit(label) + (sub ? " — " + sub : "");
+      // A continuation row has no name of its own; say so rather than
+      // presenting it as if it were the parent row.
+      if (inherited) measure += " (row " + (seq + 1) + ")";
+
+      figures.push({
+        measure: measure.replace(/\s+/g, " ").trim().slice(0, 110),
+        value: parsed.value, raw: parsed.raw, unit: unit,
+        year: year, undated: !year,
+        page: pageNo, source: "table",
+        confidence: (!year ? 0.6 : (inherited ? 0.7 : 0.9))
+      });
+    }
+  }
+  figures.header = (years.length && years[0].label) ? {
+    years: years, subs: subs,
+    width: [rows[0].cells[0].x0, rows[0].cells[rows[0].cells.length - 1].x1]
+  } : null;
+  return figures;
 }
 
 function figuresFromText(text, page) {
@@ -403,6 +673,7 @@ function dedupe(figures) {
     });
 }
 
+
 /* --- the whole extraction ------------------------------------------- */
 function extract(pages, onLog) {
   var loc = locate(pages);
@@ -416,19 +687,23 @@ function extract(pages, onLog) {
       var r = loc.ranges[p];
       var found = splitPrinciple(pages, p, r[0], r[1]);
       found.forEach(function (ind) {
-        var rows = linesFor(pages, ind);
-        var tbl = figuresFromRows(rows);
-        var narrative = rows.filter(function (_, i) { return !tbl.used[i]; })
-          .map(function (e) { return e.line.text; }).join(" ")
-          .replace(/\s+/g, " ").trim();
-        var figs = tbl.figures.concat(figuresFromText(narrative, ind.page));
-        ind.narrative = narrative;
+        var content = contentFor(pages, ind);
+        var figs = [], carry = null;
+        content.tables.forEach(function (t) {
+          var got = figuresFromTable(t.rows, t.page, carry);
+          if (got.header) carry = got.header;
+          figs = figs.concat(got);
+        });
+        // Prose figures only where no table gave any, so a tabulated
+        // number is never restated as a vaguer duplicate.
+        if (!figs.length) figs = figuresFromText(content.narrative, ind.page);
+        ind.narrative = content.narrative;
         ind.figures = dedupe(figs);
         ind.status = "pending";
         indicators.push(ind);
       });
       if (onLog) {
-        onLog("Principle " + p + ": pages " + r[0] + "–" + r[1] +
+        onLog("Principle " + p + ": pages " + r[0] + "\u2013" + r[1] +
               ", " + found.length + " indicators");
       }
     });
@@ -732,7 +1007,7 @@ function slug(s) {
 /* --- running it ------------------------------------------------------ */
 function guessCompany(pages) {
   for (var i = 0; i < Math.min(pages.length, 4); i++) {
-    var lines = pages[i];
+    var lines = (pages[i] || {}).lines || [];
     for (var j = 0; j < Math.min(lines.length, 12); j++) {
       var t = lines[j].text.trim();
       if (/limited|ltd\.?$|plc$/i.test(t) && t.length < 70) return t;
@@ -753,8 +1028,10 @@ function handleFile(file) {
   progress(0.02);
   log("Opening " + file.name + " …");
 
+  var LIB = null;
   file.arrayBuffer().then(function (buf) {
     return loadPdfJs().then(function (lib) {
+      LIB = lib;
       return lib.getDocument({data: buf, disableFontFace: true}).promise;
     });
   }).then(function (doc) {
@@ -765,13 +1042,31 @@ function handleFile(file) {
       (function (n) {
         seq = seq.then(function () {
           return doc.getPage(n).then(function (page) {
-            return page.getTextContent().then(function (c) {
-              pages[n - 1] = pageLines(c);
-              if (n % 10 === 0 || n === doc.numPages) {
-                progress(0.05 + 0.8 * n / doc.numPages);
-                $("work-title").textContent = "Reading page " + n + " of " + doc.numPages;
-              }
-            });
+            return Promise.all([page.getTextContent(), page.getOperatorList()])
+              .then(function (both) {
+                var lines = pageLines(both[0]);
+                var runs = [];
+                lines.forEach(function (l) {
+                  l.runs.forEach(function (r) { runs.push(r); });
+                });
+                // Cells are drawn as rectangles; grouping the ones that
+                // touch gives each table on the page.
+                var tables = groupTables(pageSegments(both[1], LIB.OPS))
+                  .map(function (g) {
+                    var rows = gridRows(g, runs);
+                    if (!rows.length) return null;
+                    return {
+                      rows: rows,
+                      top: rows[0].top,
+                      bottom: rows[rows.length - 1].bottom
+                    };
+                  }).filter(Boolean);
+                pages[n - 1] = {lines: lines, tables: tables};
+                if (n % 5 === 0 || n === doc.numPages) {
+                  progress(0.05 + 0.8 * n / doc.numPages);
+                  $("work-title").textContent = "Reading page " + n + " of " + doc.numPages;
+                }
+              });
           });
         });
       })(p);
@@ -831,6 +1126,8 @@ window.BRSR_INTERNALS = {
   extract: extract, pageLines: pageLines, parseNumber: parseNumber,
   buildRows: buildRows, buildSeries: buildSeries, loadPdfJs: loadPdfJs,
   dataFile: dataFile, profilePage: profilePage,
+  pageSegments: pageSegments, groupTables: groupTables, gridRows: gridRows,
+  figuresFromTable: figuresFromTable,
   state: function () { return STATE; }
 };
 })();
