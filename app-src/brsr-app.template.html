@@ -205,21 +205,93 @@ function loadPdfJs() {
 /* --- text geometry --------------------------------------------------- */
 // pdf.js gives each run of text a position. Runs on the same baseline are
 // one line; x position is what separates a row label from its columns.
+// A superscript or subscript is set on its own baseline: the exponent of
+// "4.92 x 10-7" sits about three points above the line at half the size,
+// the subscript of tCO2e about three below. Grouping text by baseline
+// alone stranded them on lines of their own, which turned an emission
+// intensity into "-7" — a negative one — and a unit into "Metric tonnes of
+// CO Equivalent 2". Each is pulled back onto the baseline of the full-size
+// run it touches, before any lines are formed.
+function snapScripts(runs) {
+  // The yardstick is the body height — the size most of the page's text is
+  // set in, weighted by how much text is set in it — not the tallest run.
+  // Measuring against the tallest made every line of body text look small
+  // next to a heading, and dragged real text off its own line.
+  var weight = {};
+  runs.forEach(function (r) {
+    if (!r.h) return;
+    var k = Math.round(r.h * 2) / 2;
+    weight[k] = (weight[k] || 0) + r.s.length;
+  });
+  var body = 0, bestW = 0;
+  Object.keys(weight).forEach(function (k) {
+    if (weight[k] > bestW) { bestW = weight[k]; body = parseFloat(k); }
+  });
+  if (!body) return;
+  var index = {};                       // coarse y buckets, to keep this linear
+  runs.forEach(function (r) {
+    var k = Math.round(r.y / 4);
+    (index[k] = index[k] || []).push(r);
+  });
+  runs.forEach(function (r) {
+    if (!r.h || r.h > body * 0.8) return;      // only genuinely small runs
+    var host = null, bestD = 1e9, k = Math.round(r.y / 4);
+    for (var d = -2; d <= 2; d++) {
+      var near = index[k + d];
+      if (!near) continue;
+      for (var i = 0; i < near.length; i++) {
+        var o = near[i];
+        if (o === r || !o.h || o.h < r.h * 1.25 || o.h < body * 0.8) continue;
+        var dy = Math.abs(o.y - r.y);
+        if (dy === 0 || dy > 0.6 * o.h) continue;
+        var gap = (r.x >= o.x) ? r.x - (o.x + o.w) : o.x - (r.x + r.w);
+        if (gap > 0.5 * o.h || gap < -0.5 * o.h) continue;
+        var score = dy + Math.abs(gap);
+        if (score < bestD) { bestD = score; host = o; }
+      }
+    }
+    if (host) { r.y = host.y; r.script = true; }
+  });
+}
+
 function pageLines(content) {
-  var buckets = {};
+  var runs = [];
   content.items.forEach(function (it) {
     if (!it.str || !it.str.trim()) return;
-    var x = it.transform[4], y = it.transform[5];
-    var key = Math.round(y / 2.2);
-    (buckets[key] = buckets[key] || []).push({x: x, y: y, s: it.str, w: it.width});
+    runs.push({x: it.transform[4], y: it.transform[5], s: it.str,
+               w: it.width, h: it.height || Math.abs(it.transform[3]) || 0});
+  });
+  snapScripts(runs);
+
+  var buckets = {};
+  runs.forEach(function (r) {
+    var key = Math.round(r.y / 2.2);
+    (buckets[key] = buckets[key] || []).push(r);
   });
   return Object.keys(buckets).map(function (k) {
-    var runs = buckets[k].sort(function (a, b) { return a.x - b.x; });
+    var rs = buckets[k].sort(function (a, b) { return a.x - b.x; });
+    // Joined with a space only where the runs are actually apart. pdf.js
+    // emits a ligature as a run of its own, so joining everything with a
+    // space printed "identi fi ed" and "Brie fl y" on a page a client
+    // reads, and split the subscript out of tCO2e.
+    var text = "";
+    rs.forEach(function (r, i) {
+      if (i) {
+        var prev = rs[i - 1];
+        var gap = r.x - (prev.x + prev.w);
+        var h = Math.max(prev.h || 0, r.h || 0) || 9;
+        // A superscript or subscript belongs to the token it hangs off —
+        // the 2 of tCO2e, the exponent of 10-7 — so it never takes a space.
+        var script = r.script || prev.script;
+        if (!script && gap > 0.18 * h &&
+            !/\s$/.test(text) && !/^\s/.test(r.s)) text += " ";
+      }
+      text += r.s;
+    });
     return {
-      y: runs[0].y,
-      runs: runs,
-      text: runs.map(function (r) { return r.s; }).join(" ")
-                .replace(/\s+/g, " ").trim()
+      y: rs[0].y,
+      runs: rs,
+      text: text.replace(/\s+/g, " ").trim()
     };
   }).sort(function (a, b) { return b.y - a.y; });   // top of page first
 }
@@ -228,6 +300,12 @@ function pageLines(content) {
 var NUMBER = /-?\d[\d,]*(?:\.\d+)?/;
 // Indian (4,94,545.39) and international (494,545.39) grouping both appear
 // in filed reports. The printed form is kept so nothing is reformatted.
+// "4.92 x 10-7" is one number. Read as two, the figure kept was -7: a
+// negative emissions intensity, published under a real company's name. A
+// sign or a caret is required after the 10 so that a plain "2 x 105" is
+// left alone. Nothing is rounded and the printed form is kept as published.
+var SCI = /^\s*[x\u00d7*]\s*10\s*(?:\^\s*([+-]?\d{1,3})|([+-]\d{1,3}))/;
+
 function parseNumber(text) {
   if (text === null || text === undefined) return null;
   var flat = String(text).replace(/\s+/g, " ").trim();
@@ -235,9 +313,16 @@ function parseNumber(text) {
   if (!m) return null;
   var value = parseFloat(m[0].replace(/,/g, ""));
   if (isNaN(value)) return null;
-  var unit = (flat.slice(0, m.index) + " " + flat.slice(m.index + m[0].length))
+  var raw = m[0], after = flat.slice(m.index + m[0].length);
+  var sci = SCI.exec(after);
+  if (sci) {
+    value = value * Math.pow(10, parseInt(sci[1] || sci[2], 10));
+    raw = flat.slice(m.index, m.index + m[0].length + sci[0].length).trim();
+    after = after.slice(sci[0].length);
+  }
+  var unit = (flat.slice(0, m.index) + " " + after)
     .replace(/[\s:;,.]+$/, "").replace(/^[\s:;,.]+/, "").replace(/\s+/g, " ").trim();
-  return {value: value, raw: m[0], unit: unit};
+  return {value: value, raw: raw, unit: unit};
 }
 
 /* --- locate ---------------------------------------------------------- */
@@ -838,7 +923,11 @@ function figuresFromText(text, page) {
 function dedupe(figures) {
   var best = {};
   figures.forEach(function (f) {
-    var k = f.value.toFixed(6) + "|" + f.year + "|" + f.unit.toLowerCase();
+    // Keyed in exponential form. Fixed six decimal places rounded every
+    // intensity smaller than a millionth to "0.000000", so two different
+    // figures — energy intensity and the same intensity adjusted for PPP —
+    // looked identical and one was dropped.
+    var k = f.value.toExponential(9) + "|" + f.year + "|" + f.unit.toLowerCase();
     if (!best[k] || f.confidence > best[k].confidence) best[k] = f;
   });
   return Object.keys(best).map(function (k) { return best[k]; })

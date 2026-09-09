@@ -51,16 +51,26 @@ function check(label, got, want) {
 }
 
 // The answer key: figures written into the Principle 6 narratives.
+// Read independently of the app, from the printed form. A BRSR writes
+// small intensities as "35.42 x 10-10"; that is one number, and a key that
+// stopped at the mantissa asserted the very bug this suite is meant to
+// catch — an emissions intensity ten orders of magnitude too large, or
+// negative once the exponent was read as the value.
 function keyFigures(narrative) {
-  const out = new Set();
+  const out = new Map();
   const re = /FY\s*(\d{4})\s*:\s*([^;]+)/gi;
   let m;
   while ((m = re.exec(narrative)) !== null) {
     const n = /-?\d[\d,]*(?:\.\d+)?/.exec(m[2]);
-    if (n) {
-      const v = parseFloat(n[0].replace(/,/g, ""));
-      if (!isNaN(v)) out.add(`${m[1]}|${v.toFixed(6)}`);
-    }
+    if (!n) continue;
+    let v = parseFloat(n[0].replace(/,/g, ""));
+    if (isNaN(v)) continue;
+    const rest = m[2].slice(n.index + n[0].length);
+    const sci = /^\s*[x\u00d7*]\s*10\s*(?:\^\s*([+-]?\d{1,3})|([+-]\d{1,3}))/.exec(rest);
+    if (sci) v *= Math.pow(10, parseInt(sci[1] || sci[2], 10));
+    // Keyed on the value, carrying the printed mantissa so the caller can
+    // still tell whether the figure appears in the fixture at all.
+    out.set(`${m[1]}|${v.toExponential(6)}`, n[0].replace(/,/g, ""));
   }
   return out;
 }
@@ -161,15 +171,15 @@ function keyFigures(narrative) {
   const got = {};
   out.pairs.forEach(([code, label, value]) => {
     const y = /\b(\d{4})\b/.exec(label);
-    if (y) (got[code] = got[code] || new Set()).add(`${y[1]}|${value.toFixed(6)}`);
+    if (y) (got[code] = got[code] || new Set()).add(`${y[1]}|${value.toExponential(6)}`);
   });
 
   let total = 0, matched = 0;
   const missing = [];
   Object.keys(byCode).sort().forEach((code) => {
-    keyFigures(byCode[code].highlights).forEach((k) => {
-      const v = parseFloat(k.split("|")[1]);
-      if (!fixtureHtml.includes(String(v)) && !fixtureHtml.includes(v.toFixed(2))) return;
+    keyFigures(byCode[code].highlights).forEach((printed, k) => {
+      const mant = parseFloat(printed);
+      if (!fixtureHtml.includes(printed) && !fixtureHtml.includes(mant.toFixed(2))) return;
       total++;
       if (got[code] && got[code].has(k)) matched++;
       else missing.push(`${code} ${k}`);
