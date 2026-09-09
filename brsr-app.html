@@ -493,7 +493,7 @@ function splitPrinciple(pages, principle, start, end, startY, endY) {
         // A BRSR question runs over two or three lines and ends with "?"
         // or ":". Taking only the first line left the title cut mid-word
         // and pushed the rest into the answer.
-        var stub = m[2].trim(), stubY = lines[i].y, k = i;
+        var stub = m[2].trim(), stubY = lines[i].y, qTop = lines[i].y, k = i;
         while (!/[?:]$/.test(stub) && k + 1 < lines.length && k - i < 3) {
           var nxtText = lines[k + 1].text;
           // Never absorb a table row: the question ends where the
@@ -509,7 +509,8 @@ function splitPrinciple(pages, principle, start, end, startY, endY) {
           stubY = lines[k].y;
         }
         marks.push({n: parseInt(m[1], 10), block: block, page: p,
-                    y: stubY, stub: stub.replace(/\s+/g, " ").trim()});
+                    y: stubY, top: qTop,
+                    stub: stub.replace(/\s+/g, " ").trim()});
       }
     }
   }
@@ -522,7 +523,11 @@ function splitPrinciple(pages, principle, start, end, startY, endY) {
       question: mk.stub,
       page: mk.page,
       from: {page: mk.page, y: mk.y},
-      to: nxt ? {page: nxt.page, y: nxt.y}
+      // Stops where the next question starts, not where its title ends.
+      // Taking the end meant every answer swallowed the next question's
+      // title: two answers in three on a real filing opened by asking the
+      // following question.
+      to: nxt ? {page: nxt.page, y: nxt.top}
               : {page: end, y: (endY == null ? -1e9 : endY)}
     };
   });
