@@ -30,7 +30,18 @@ const { chromium } = require("playwright-core");
 const ROOT = path.join(__dirname, "..");
 const APP = path.join(ROOT, "brsr-app.html");
 const FIXTURE = path.join(__dirname, "fixtures", "test-brsr.pdf");
-const EXEC = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+// Chrome's path differs between the build sandbox and a laptop, so it is
+// looked up rather than fixed. CHROME=/path/to/chrome overrides.
+const EXEC = [
+  process.env.CHROME,
+  "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Chromium.app/Contents/MacOS/Chromium",
+].find((c) => c && fs.existsSync(c));
+if (!EXEC) {
+  console.error("No Chrome found. Install Google Chrome, or set CHROME=/path/to/chrome");
+  process.exit(1);
+}
 
 const fails = [];
 function check(label, got, want) {

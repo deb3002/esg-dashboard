@@ -14,7 +14,21 @@ import json, os, re, subprocess, sys, html
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-CHROME = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+# Chrome is only used to print the fixture PDF. The path differs between
+# the build sandbox and a laptop, so it is looked up rather than fixed.
+def find_chrome():
+    import shutil
+    for c in [os.environ.get("CHROME"),
+              "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
+              "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+              "/Applications/Chromium.app/Contents/MacOS/Chromium",
+              shutil.which("google-chrome"), shutil.which("chromium")]:
+        if c and os.path.exists(c):
+            return c
+    sys.exit("No Chrome found. Install Google Chrome, or set CHROME=/path/to/chrome")
+
+
+CHROME = find_chrome()
 
 # SEBI Principle 6 question wording, Annexure I to circular 2021/562.
 # Indexed by the position the question occupies in the filed form; the

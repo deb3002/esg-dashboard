@@ -249,6 +249,100 @@ var RE_QUESTION = /^\s*(\d{1,2})\s*[.)]\s+(\S.*)$/;
 var RE_FY_VALUE = /FY\s*(\d{4})\s*:\s*([^;]+)/gi;
 var RE_YEAR_COL = /FY\s*[-–]?\s*(\d{4})/i;
 
+// A numbered line is one of the form's questions only when it starts at the
+// same left margin as its own "Essential Indicators" / "Leadership
+// Indicators" heading. Answers carry numbered lists of their own — the
+// Principle 9 answer listing a company's customer channels runs 1 to 7 —
+// and those sit indented. Reading them as questions gave seven indicators
+// the same code and made the section look as though it had ended.
+var MARGIN_TOL = 8;
+var COLUMN_GAP = 100;   // two-column filings set their columns far wider apart
+function lineX(line) {
+  return (line && line.runs && line.runs.length) ? line.runs[0].x : null;
+}
+
+// A numbered line is one of the form's questions only when it starts at the
+// left edge of its own column. Answers carry numbered lists of their own —
+// the Principle 9 answer listing a company's customer channels runs 1 to 7,
+// indented — and reading those as questions gave seven indicators the same
+// code and made the section look as though it had ended.
+//
+// Worked out per page and per column, not from the block heading: filings
+// indent headings differently from the questions beneath them, the margin
+// shifts from page to page, and a two-column BRSR puts a second run of
+// questions half-way across the page.
+function questionColumns(lines, hi, lo) {
+  var xs = [];
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i];
+    if (l.y > hi || l.y <= lo) continue;
+    if (!RE_QUESTION.test(l.text)) continue;
+    var x = lineX(l);
+    if (x != null) xs.push(x);
+  }
+  xs.sort(function (a, b) { return a - b; });
+  var cols = [], last = null;
+  xs.forEach(function (x) {
+    if (last === null || x - last > COLUMN_GAP) cols.push(x);
+    last = x;
+  });
+  return cols;
+}
+
+function questionOn(line, cols) {
+  var m = RE_QUESTION.exec(line.text);
+  if (!m) return null;
+  var x = lineX(line);
+  if (cols && cols.length && x != null) {
+    var atEdge = cols.some(function (c) { return Math.abs(x - c) <= MARGIN_TOL; });
+    if (!atEdge) return null;
+  }
+  return m;
+}
+
+// A filed BRSR usually arrives as a section inside a much larger annual
+// report, and the last principle has no following heading to stop it.
+// Left unbounded it ran to the final page of a 513-page report and filed
+// the independent auditor’s report as Principle 9 consumer disclosures.
+//
+// A page still belongs to the BRSR while it carries one of the form’s own
+// structural marks: an Essential or Leadership heading, a question number
+// continuing the block’s ascending sequence, or a financial-year column
+// heading. The first page carrying none of them ends the section.
+//
+// Deliberately NOT used as a stop: a question number restarting at 1.
+// Answers in a real filing contain their own numbered lists — Principle 9
+// lists the channels a company uses — and stopping there truncated real
+// disclosures.
+function brsrEnd(pages, startPage) {
+  var last = startPage, high = 0;
+  for (var p = startPage; p <= pages.length; p++) {
+    var lines = (pages[p - 1] || {}).lines || [];
+    var marked = false, restarted = false, headed = false;
+    var cols = questionColumns(lines, 1e9, -1e9);
+    for (var i = 0; i < lines.length; i++) {
+      var t = lines[i].text;
+      if (RE_ESSENTIAL.test(t) || RE_LEADERSHIP.test(t)) {
+        high = 0; marked = true; headed = true; continue;
+      }
+      if (RE_YEAR_COL.test(t)) marked = true;
+      var m = questionOn(lines[i], cols);
+      if (!m) continue;
+      var n = parseInt(m[1], 10);
+      if (n > high) { high = n; marked = true; }
+      else restarted = true;
+    }
+    // Numbering that goes backwards with no heading to reset it is the next
+    // thing in the annual report, not more of the BRSR. Pages carrying a
+    // heading are exempt: a two-column filing prints one column under the
+    // other, so reading order runs the two sequences together and a
+    // backwards step there means nothing.
+    if ((restarted && !headed) || !marked) break;
+    last = p;
+  }
+  return last;
+}
+
 function locate(pages) {
   var sectionC = null, seen = {}, ordered = [];
   pages.forEach(function (pg, i) {
@@ -260,15 +354,21 @@ function locate(pages) {
       var m = RE_PRINCIPLE.exec(l.text);
       if (m) {
         var p = parseInt(m[1], 10);
-        if (!seen[p]) { seen[p] = true; ordered.push({p: p, page: n}); }
+        if (!seen[p]) { seen[p] = true; ordered.push({p: p, page: n, y: l.y}); }
       }
     });
   });
   ordered.sort(function (a, b) { return a.page - b.page; });
   var ranges = {};
   ordered.forEach(function (o, i) {
-    var end = (i + 1 < ordered.length) ? ordered[i + 1].page - 1 : pages.length;
-    ranges[o.p] = [o.page, Math.max(o.page, end)];
+    var nxt = ordered[i + 1];
+    // A principle runs from its own heading to the next one, wherever that
+    // falls. Ending it on the previous page dropped whatever shared a page
+    // with the next heading, and two principles that begin on the same page
+    // — 7 ends and 8 starts halfway down — each claimed the whole page and
+    // reported the other’s questions under their own codes.
+    var end = nxt ? nxt.page : brsrEnd(pages, o.page);
+    ranges[o.p] = [o.page, Math.max(o.page, end), o.y, nxt ? nxt.y : null];
   });
   return {sectionC: sectionC, ranges: ranges};
 }
@@ -277,25 +377,32 @@ function locate(pages) {
 // BRSR questions are numbered under "Essential Indicators" and "Leadership
 // Indicators", so position gives the code: question 3 under Principle 6's
 // essential indicators is P6-E3. No question wording is needed.
-function splitPrinciple(pages, principle, start, end) {
+// startY is the principle's own heading and endY the next one's, so a page
+// shared by two principles is divided where the headings actually sit
+// rather than being claimed whole by both.
+function splitPrinciple(pages, principle, start, end, startY, endY) {
   var marks = [], block = null;
   for (var p = start; p <= end; p++) {
     var pg = pages[p - 1] || {};
     var lines = pg.lines || [];
     var bands = pg.tables || [];
+    var hi = (p === start && startY != null) ? startY : 1e9;
+    var lo = (p === end && endY != null) ? endY : -1e9;
+    var cols = questionColumns(lines, hi, lo);
     function inTable(y) {
       return bands.some(function (t) { return y <= t.top + 2 && y >= t.bottom - 2; });
     }
     for (var i = 0; i < lines.length; i++) {
+      if (lines[i].y > hi || lines[i].y <= lo) continue;
       var t = lines[i].text;
       if (RE_ESSENTIAL.test(t)) { block = "E"; continue; }
       if (RE_LEADERSHIP.test(t)) { block = "L"; continue; }
-      var m = RE_QUESTION.exec(t);
+      var m = questionOn(lines[i], cols);
       if (m && block) {
         // A BRSR question runs over two or three lines and ends with "?"
         // or ":". Taking only the first line left the title cut mid-word
         // and pushed the rest into the answer.
-        var stub = m[2].trim(), endY = lines[i].y, k = i;
+        var stub = m[2].trim(), stubY = lines[i].y, k = i;
         while (!/[?:]$/.test(stub) && k + 1 < lines.length && k - i < 3) {
           var nxtText = lines[k + 1].text;
           // Never absorb a table row: the question ends where the
@@ -308,10 +415,10 @@ function splitPrinciple(pages, principle, start, end) {
               /^\s*[\d,.]+\s*$/.test(nxtText)) break;
           k++;
           stub += " " + nxtText.trim();
-          endY = lines[k].y;
+          stubY = lines[k].y;
         }
         marks.push({n: parseInt(m[1], 10), block: block, page: p,
-                    y: endY, stub: stub.replace(/\s+/g, " ").trim()});
+                    y: stubY, stub: stub.replace(/\s+/g, " ").trim()});
       }
     }
   }
@@ -324,7 +431,8 @@ function splitPrinciple(pages, principle, start, end) {
       question: mk.stub,
       page: mk.page,
       from: {page: mk.page, y: mk.y},
-      to: nxt ? {page: nxt.page, y: nxt.y} : {page: end, y: -1e9}
+      to: nxt ? {page: nxt.page, y: nxt.y}
+              : {page: end, y: (endY == null ? -1e9 : endY)}
     };
   });
 }
@@ -1005,7 +1113,7 @@ function extractBrsr(pages, onLog) {
   Object.keys(loc.ranges).map(Number).sort(function (a, b) { return a - b; })
     .forEach(function (p) {
       var r = loc.ranges[p];
-      var found = splitPrinciple(pages, p, r[0], r[1]);
+      var found = splitPrinciple(pages, p, r[0], r[1], r[2], r[3]);
       found.forEach(function (ind) {
         var content = contentFor(pages, ind);
         var figs = [], carry = null, tableProse = [];
