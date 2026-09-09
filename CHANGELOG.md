@@ -8,6 +8,69 @@ Every change to this project, newest first, in plain language.
 
 ---
 
+## 9 Sep 2026 (latest) — annual reports read correctly; the review gate made real
+
+**Where the app lives changed.** It is in the repository as `brsr-app.html`,
+generated from `app-src/brsr-app.template.html` by `tools/build_app.py`. The
+loose copies — `brsrapp.html`, `brsrapp2.html`, `brsrapp3.html` — are
+downloads of that built file at three points in time. `brsrapp3.html` matches
+the current one exactly. Editing a built copy loses the work at the next
+build, which is why the source is named everywhere now.
+
+**Eight faults found by running a real 513-page integrated annual report
+through it.** None showed on a standalone BRSR, which is why they survived.
+
+- The last principle had nothing to stop it, so Principle 9 claimed pages
+  281 to 513 and filed the auditor's report as consumer disclosures — 109
+  invented rows, unflagged.
+- A superscript exponent sat on its own baseline, so `4.92 x 10-7` was read
+  as `-7`. A **negative emissions intensity**, under a real company's name.
+  Superscripts and subscripts are pulled back onto their line, and the
+  number is read whole.
+- Numbered lists inside an answer were read as questions; the Principle 9
+  answer listing customer channels runs 1 to 7, so seven invented indicators
+  took real codes. A question must now start at the left edge of its column.
+- Tables that draw only their column separators lost everything outside
+  them — on the energy table, the parameter names and the entire previous
+  year. Figures went from 88 to 216, and the prior year from 23 to 98.
+- Sideways margin tabs and running headers were spliced into sentences
+  ("However, we *Corporate Overview* ensure that…").
+- Every answer swallowed the next question — two in three of them.
+- Two visual faults: long titles printing over the tags beside them, and
+  titles cut mid-word.
+
+**Why the tests did not catch the exponent bug:** the answer key read
+`35.42 x 10-10` as `35.42`, the same rule that caused the fault. A green run
+had been endorsing a wrong number. The key now reads exponents independently.
+
+**The four changes specified in `brsrapp-fix-spec.md` landed.** The principle
+search is fenced to Section C — it used to take the first "Principle *n*"
+line anywhere, and a report names its principles in contents lists, in
+Section B and in a GRI index long before the annexure answers them.
+"Approve all" no longer approves everything: it takes only indicators whose
+every figure was read with high confidence, 25 of 108 on the annual report,
+which is what stops the review gate being ceremonial. Review state now
+survives a closed tab, saved under a fingerprint of the PDF so a different
+report never restores the wrong work. And an audit trail downloads as CSV —
+one row per figure with its page, confidence, status, and what the extractor
+first read if a person corrected it.
+
+**A defect this changelog recorded was not real.** The entry below reports a
+*"Principle 9 of the NGRBCs"* line on page 17 of the bundled BRSR
+mis-anchoring two principles. It does not reproduce: that PDF holds exactly
+nine lines able to anchor a principle, on the nine correct pages, and both
+the current app and the older copies already produced them. The entry is
+kept, because a reversal is information. The weakness behind it was real and
+is fixed. Accuracy measurement is no longer blocked.
+
+**Added `tools/test-extract.js`** — 30 checks on the extraction rules,
+running in Node against the shipped code with no browser and no PDF.
+
+Still true: no dependencies, no network, no credentials, no rounding of
+figures. Accuracy remains unmeasured.
+
+---
+
 ## 9 Sep 2026 (later) — `brsrapp2.html` reviewed; locating defect found
 
 **Added `brsrapp2.html`**, superseding `brsrapp.html`. New: `brsrEnd` infers where the BRSR stops by watching indicator numbering go backwards without a heading to reset it; `stripRunningHeads` removes repeated page furniture by shape; principle ranges became y-aware so two principles sharing a page split correctly. All safety invariants held — no dependencies, no network, no credentials, no rounding of figures.
@@ -166,4 +229,4 @@ Carried unbroken since the start, and not up for renegotiation without a decisio
 - **It opens by double-clicking.** No server, no build step.
 - **Never invent a figure.** No estimation, no filling gaps with plausible numbers, no rounding or unit conversion on the way in. A missing value renders empty.
 - **Provenance stays visible.** Every mapping traceable to a named public document; anything weaker marked as derived rather than sourced.
-- **Nothing publishes unreviewed** — the rule Phase 1 stated and `brsrapp.html` now enforces in code.
+- **Nothing publishes unreviewed** — the rule Phase 1 stated and `brsr-app.html` now enforces in code, with a bulk-approve button that cannot satisfy the gate on its own.

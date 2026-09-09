@@ -1,10 +1,10 @@
 # Phase 3 Architecture — Upload a report, get a profile
 
-**Status: partly answered.** Written before `brsrapp.html` existed. Three of its open questions now have answers, marked below. Accuracy remains unmeasured, so everything downstream of it is still contingent.
+**Status: partly answered.** Written before the extraction app existed. Three of its open questions now have answers, marked below. Accuracy remains unmeasured, so everything downstream of it is still contingent.
 
 > **Updated 9 Sep 2026 — what the prototype settled:**
 > - **Cost per report: zero.** Extraction is pattern and layout analysis, not an AI model. Section 7's cost question is closed.
-> - **The review gate is enforced in code — but see the caveat below.** Generation is blocked until nothing is pending. However `brsrapp2.html` added an "Approve all" button that satisfies the gate for every indicator in one click, which makes it ceremonial. Change 2 of `brsrapp-fix-spec.md` restricts it to high-confidence rows.
+> - **The review gate is enforced in code, and now means something.** Generation is blocked until nothing is pending. An "Approve all" button used to satisfy that gate for every indicator in one click, which made it ceremonial; it now takes only indicators that produced figures and whose every figure was read with high confidence — 25 of 108 on the annual report tested, with the rest decided one at a time.
 > - **Provenance survives extraction** — page number, table-or-narrative source, and a confidence score per figure.
 >
 > Still open: accuracy, layout variance across companies, and everything in section 9.

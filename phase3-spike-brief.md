@@ -5,7 +5,9 @@ The only output is a number and a failure log.
 
 > **BLOCKED — 9 Sep 2026. Do not run this yet.** The extractor mis-locates two of the nine principles on the very file this spike uses: a "Principle 9 of the" line on page 17 (Section B) anchors P9 there, which also lets P8 absorb P9's real content. Measuring now would produce a number that is wrong in a way nobody would notice. **Fix change 1 in `brsrapp-fix-spec.md` first, then run this.**
 >
-> **Updated 9 Sep 2026.** `brsrapp2.html` now does the extracting. This brief was written when the extractor had to be built first; it does not. **The spike is now a measurement exercise, not a build.** Run the prototype on the report below, compare its output against the answer key, count. Everything else here still applies — especially what to measure and what the result means.
+> **Updated 9 Sep 2026.** `brsr-app.html` now does the extracting. This brief was written when the extractor had to be built first; it does not. **The spike is now a measurement exercise, not a build.** Run the app on the report below, compare its output against the answer key, count. Everything else here still applies — especially what to measure and what the result means.
+>
+> **Nothing blocks this any more.** An earlier note held the measurement back until a locating defect was fixed. That defect did not reproduce — see `CHANGELOG.md` — and the weakness behind it has been fixed regardless.
 
 ---
 
@@ -53,7 +55,7 @@ Do not broaden the scope to make the result look better.
 
 ## Method
 
-1. **Open `brsrapp2.html`** and drop in the report PDF. Steps 1 to 3 below are what it already does — record whether each worked rather than building them.
+1. **Open `brsr-app.html`** and drop in the report PDF. Steps 1 to 3 below are what it already does — record whether each worked rather than building them.
 2. Confirm it **located** the BRSR section and **split** it into the numbered indicators. Check the principle page ranges explicitly — they should be 20, 23, 25, 30, 31, 34, 38, 39, 41. If they are not, stop; the locator is still wrong and the score would be meaningless.
 3. Read off what it **extracted** per indicator: narrative, figures, units, years, page numbers, confidence.
 4. **Score** against the answer key. Do this outside the app, in a spreadsheet or a script.

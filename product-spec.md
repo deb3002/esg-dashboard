@@ -1,19 +1,20 @@
 # Product Spec — ESG Disclosure Profile Viewer (Tier 1 MVP)
 
-**Revision 12 — 9 Sep 2026.** Current. Phase 1 is built, demonstrated and unchanged. A BRSR extraction prototype (`brsrapp2.html`) now exists — see **Phase 3 status** below.
+**Revision 13 — 9 Sep 2026.** Current. Phase 1 is built, demonstrated and unchanged. The BRSR extraction app is in the repository as **`brsr-app.html`**, generated from `app-src/brsr-app.template.html`. The four changes in `brsrapp-fix-spec.md` have landed, and the accuracy measurement is no longer blocked — see **Phase 3 status** below. Loose copies named `brsrapp.html`, `brsrapp2.html` and `brsrapp3.html` are earlier downloads of that same built file; `brsrapp3.html` matches the current one exactly.
 
 **Full change history, with the reasoning behind each decision, is in `CHANGELOG.md`.** It was moved out of this file: eleven stacked revision notes had grown longer than some of the sections they described.
 
-## Phase 3 status — extraction prototype exists
+## Phase 3 status — the extraction app exists
 
-`brsrapp2.html` reads a BRSR or sustainability report PDF and generates a profile from it, entirely in the browser. It is **not** part of the Tier 1 build and does not change anything in this spec; the viewer it produces is the same one specified here.
+`brsr-app.html` reads a BRSR or sustainability report PDF and generates a profile from it, entirely in the browser. It is **not** part of the Tier 1 build and does not change anything in this spec; the viewer it produces is the same one specified here.
 
 What it establishes, and what it does not:
 
 - **Established:** extraction needs no AI model, no network and no per-report cost. It is regex plus geometric layout parsing, so failures are deterministic and traceable to a pattern rather than probabilistic.
 - **Established:** the review gate works as a product. Every indicator must be approved or excluded before a profile can be generated — enforced in code, not by convention.
 - **Not established: accuracy.** Nobody has run it against a report with known-correct answers. Until that number exists, the review model — whether a client can check their own profile or whether Debraj must — stays open.
-- **Known defect:** the current version, `brsrapp2.html`, mis-locates two of the nine BRSR principles on the bundled test PDF, because it detects the Section C page and then does not use it. Four fixes are specified in `brsrapp-fix-spec.md`. **The accuracy measurement is blocked behind the first of them.**
+- **A defect recorded here previously was not real.** This spec said the app mis-located two of the nine principles on the bundled test PDF. It does not: that PDF holds exactly nine lines able to anchor a principle, on the nine correct pages, and both the current app and the older copies already produced those ranges. The weakness behind the claim was genuine — the Section C page was found and then ignored, so the first "Principle *n*" line anywhere won — and it is now fixed, which matters for annual reports where the GRI index and contents pages name principles too. **The accuracy measurement is no longer blocked by anything.**
+- **All four changes in `brsrapp-fix-spec.md` have landed:** the principle search is fenced to Section C; bulk approval can only take indicators whose every figure was read with high confidence, so the review gate still means something; review state survives a closed tab; and an audit trail of every figure, with its page, confidence and status, can be downloaded.
 
 See `brsrapp-fix-spec.md` for the changes, `phase3-spike-brief.md` for the measurement that follows, and `phase3-architecture.md` for the wider design.
 

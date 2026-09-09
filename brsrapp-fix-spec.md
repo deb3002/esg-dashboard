@@ -1,8 +1,21 @@
-# Spec — four changes to `brsrapp2.html`
+# Spec — four changes to the BRSR extraction app
 
-**For Claude Code.** Read `CLAUDE.md` and `CHANGELOG.md` first. This spec covers one file: `brsrapp2.html`, the BRSR extraction prototype. It does not touch the Tier 1 viewer (`index.html`, `app.js`, `styles.css`, `tools/`).
+> **Done, 9 Sep 2026. All four changes have landed and are verified.** Kept as
+> the brief that was issued; the notes below correct two things it says.
+>
+> - **The file to work on is `app-src/brsr-app.template.html`**, not
+>   `brsrapp2.html`. The app is generated from that template by
+>   `tools/build_app.py` and shipped as `brsr-app.html`; anything edited in a
+>   built copy is discarded at the next build. `brsrapp.html`, `brsrapp2.html`
+>   and `brsrapp3.html` are downloads of the built file at three points in
+>   time — `brsrapp3.html` matches the current one exactly.
+> - **The defect in change 1 does not reproduce.** See that section for what
+>   was found instead. The weakness behind it was real and is fixed.
+>
+> The test harness asked for is `tools/test-extract.js`; it loads the built
+> `brsr-app.html` rather than `brsrapp2.html`.
 
-**Two files exist:** `brsrapp.html` (older) and `brsrapp2.html` (current — has `brsrEnd`, `stripRunningHeads`, y-aware principle ranges). **Work on `brsrapp2.html`.** Once these changes land and are verified, Debraj should delete the older file; ask him rather than doing it.
+**For Claude Code.** Read `CLAUDE.md` and `CHANGELOG.md` first. This spec covers the BRSR extraction app. It does not touch the Tier 1 viewer (`index.html`, `app.js`, `styles.css`, `tools/`).
 
 ## Constraints that override everything
 
@@ -19,6 +32,19 @@ Break any of these and the change is wrong regardless of what it fixes:
 ## Change 1 — Fence the principle search to Section C
 
 ### The problem, with evidence
+
+> **Correction, 9 Sep 2026.** The evidence below did not hold up. The bundled
+> PDF contains exactly nine lines able to anchor a principle, on pages 20,
+> 23, 25, 30, 31, 34, 38, 39 and 41 — the correct ones — and nothing before
+> Section C matches at all. Both the current app and the older copy already
+> produced those ranges, so no principle was mis-assigned and the accuracy
+> measurement was never blocked.
+>
+> The **underlying weakness was real** and the change was made anyway:
+> `locate()` did ignore the Section C page it had found. On the 513-page
+> annual report the GRI index carries lines like *"Principle 6 – 3"* on page
+> 499 and "Section C" is named on seven pages; the right ones won only
+> because they came first.
 
 `locate()` records the page where `SECTION C` first appears, then never uses it. It finds each principle by taking the **first** line anywhere in the document matching `/^\s*PRINCIPLE\s*[-–]?\s*(\d)\b/i`.
 

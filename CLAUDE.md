@@ -60,9 +60,12 @@ tools/test_app.js                   drives the app in a browser against a fixtur
 brsrapp-fix-spec.md                 four specified changes — all four are done
 ```
 
-**`brsrapp.html` and `brsrapp2.html`, if you still have them locally, are
-copies of the built app, not sources.** They are not in the repository.
-Anything you change in them is discarded the next time `build_app.py` runs.
+**`brsrapp.html`, `brsrapp2.html` and `brsrapp3.html`, if you have them
+locally, are copies of the built app at three points in time — not sources.**
+They are not in the repository. `brsrapp3.html` is the newest and matches
+`brsr-app.html` exactly; the other two are older and lack the four changes
+from `brsrapp-fix-spec.md`. Anything edited in any of them is discarded the
+next time `build_app.py` runs.
 
 **Read `CHANGELOG.md` before changing anything.** It records why decisions were made, including several that look odd until you know what went wrong with the obvious approach.
 
