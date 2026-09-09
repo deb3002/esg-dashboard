@@ -55,9 +55,27 @@ How it goes:
    from, so you can check it against the report. Type over anything wrong,
    drop a figure, or exclude a whole indicator. Nothing is generated until
    you have been through them.
-3. **Press Generate.** You get a preview, plus two downloads: the finished
-   profile page as a single HTML file, and the data file if you would
-   rather drop it into the existing viewer.
+
+   There is a button to approve the indicators whose every figure was read
+   with high confidence — it says how many that is, and it will not touch
+   anything uncertain or anything with no figures. Those are the ones worth
+   a person's attention, so they stay for you. On a real annual report it
+   clears about a quarter of them.
+
+   **Your review is saved as you go**, under a fingerprint of the PDF
+   itself, so closing the tab does not cost you an hour. Reopen the same
+   report and it offers to pick up where you left off; a different report
+   never restores the wrong work. If the browser will not allow storage,
+   the app says so and still warns you before you leave with work
+   unchecked.
+3. **Press Generate.** You get a preview, plus three downloads: the
+   finished profile page as a single HTML file, the data file if you would
+   rather drop it into the existing viewer, and an **audit trail** — one
+   CSV row per figure with its page, what it was read from, its
+   confidence, whether it was approved, excluded or dropped, and what the
+   extractor first read if you corrected it. For an investor relations
+   team that file is often worth more than the profile: it is what turns
+   "our figures are traceable" into something you can hand over.
 
 ### Reading a GRI report
 
