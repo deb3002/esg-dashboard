@@ -52,10 +52,17 @@ tools/brsr_indicators.py            BRSR/GRI/IFC mapping tables + their sources
 tools/test.js                       the 107 checks
 ESGReport.xls                       source export (gitignored — see Ground rules)
 
-brsrapp2.html                       Phase 3 prototype, CURRENT — PDF in, profile out.
-brsrapp.html                        older version; superseded, ask before deleting
-brsrapp-fix-spec.md                 four specified changes, not yet made
+app-src/brsr-app.template.html      Phase 3 app — THE SOURCE. Edit this one.
+brsr-app.html                       GENERATED from it. Never hand-edit.
+tools/build_app.py                  template -> brsr-app.html
+tools/test-extract.js               extraction rules, in Node. No browser, no PDF.
+tools/test_app.js                   drives the app in a browser against a fixture
+brsrapp-fix-spec.md                 four specified changes — all four are done
 ```
+
+**`brsrapp.html` and `brsrapp2.html`, if you still have them locally, are
+copies of the built app, not sources.** They are not in the repository.
+Anything you change in them is discarded the next time `build_app.py` runs.
 
 **Read `CHANGELOG.md` before changing anything.** It records why decisions were made, including several that look odd until you know what went wrong with the obvious approach.
 
@@ -70,7 +77,7 @@ Phase 1 is **built and running**: converter, page, theme/keyword/framework filte
 
 **One thing is deliberately unbuilt: the E/S/G filter.** Debraj must sign off the classification mapping first, because a client may ask him to defend any row's classification. Rule-based classification reaches about 84%; 105 rows are genuinely none of the three. Details in `product-spec.md`.
 
-## `brsrapp.html` — the Phase 3 prototype
+## `brsr-app.html` — the Phase 3 app
 
 A single self-contained file that reads a report PDF and generates a profile. **It is not part of the Tier 1 build** — do not wire it into `index.html`, and do not let its dependencies near the shipped page. PDF.js is embedded in it as base64 precisely so it stays self-contained.
 
@@ -80,13 +87,17 @@ Three properties that must survive any change to it:
 - **No rounding of figures.** `Math.round` appears only in layout geometry. Keep it that way.
 - **No network, no AI model, no credentials.** Extraction is regex and geometry. That is what makes it free to run and safe to hand to a client.
 
-**Work on `brsrapp2.html`** — it has `brsrEnd`, `stripRunningHeads` and y-aware principle ranges. `brsrapp.html` is the older version.
+**Work on `app-src/brsr-app.template.html`, then run `python3 tools/build_app.py`.** `brsr-app.html` is the 2 MB file that comes out — it is what gets double-clicked and what gets sent to Debraj, but editing it directly loses the work at the next build. The build is reproducible: rebuilding without changing the template leaves the file byte-identical.
 
-**Known defect, verified 9 Sep 2026.** `locate()` detects the Section C page and never uses it, so it takes the first "Principle *n*" line anywhere in the document. On the bundled BRSR PDF, a *"Principle 9 of the NGRBCs"* line on page 17 anchors P9 to Section B, and P8 then absorbs P9's real content from page 41. **Two of nine principles produce wrong output.** Fixing this is change 1 in `brsrapp-fix-spec.md`, and it is also what annual-report support needs.
+**A correction, 9 Sep 2026.** This file previously recorded a verified defect: a *"Principle 9 of the NGRBCs"* line on page 17 of the bundled BRSR anchoring P9 to Section B, so that two of nine principles produced wrong output. **That does not reproduce.** The bundled PDF contains exactly nine lines that can anchor a principle, on pages 20, 23, 25, 30, 31, 34, 38, 39 and 41 — the correct ones — and both the current app and the older copy already produced those ranges. Nothing on page 17, or anywhere before Section C, matches. If you are told this defect exists, check it before acting on it.
 
-Other gaps: review work is not saved anywhere (a reload loses about an hour), "Approve all" can satisfy the review gate without reading anything, review runs in document order rather than confidence order, and there is no audit-trail export.
+The **weakness behind it was real**, and is now fixed. `locate()` did ignore the Section C page it had found, and took the first "Principle *n*" line anywhere. On the 513-page annual report the GRI index carries lines like *"Principle 6 – 3"* on page 499, and "Section C" is named on seven separate pages; the right ones won only because they happened to come first. The principle search is now fenced to Section C, choosing the last page where a Principle 1 heading and an "Essential Indicators" heading follow within a few pages, and falling back to the first Principle 1 heading — saying so in the log — when there is no Section C at all.
 
-**Its accuracy has never been measured, and must not be measured until change 1 lands** — scoring against a locator that mis-assigns two principles gives a number that is wrong in a way nobody would notice.
+All four changes in `brsrapp-fix-spec.md` are done: the fence above, a bulk-approve button that can only take indicators whose every figure was read with high confidence (25 of 108 on the annual report — the rest have no figures and must each be decided), review state saved under a fingerprint of the PDF so a closed tab no longer costs an hour, and a downloadable audit trail of every figure with its page, confidence and status.
+
+Remaining gap: review still runs in document order rather than confidence order.
+
+**Its accuracy has still never been measured** — no report with known-correct answers has been scored against it. That is `phase3-spike-brief.md`, and nothing now blocks it: the earlier instruction to hold off until the locator was fixed rested on the defect above, which was not real.
 
 ## Three things that must not be undone
 
