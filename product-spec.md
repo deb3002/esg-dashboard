@@ -1,6 +1,6 @@
 # Product Spec — ESG Disclosure Profile Viewer (Tier 1 MVP)
 
-**Revision 13 — 9 Sep 2026.** Current. Phase 1 is built, demonstrated and unchanged. The BRSR extraction app is in the repository as **`brsr-app.html`**, generated from `app-src/brsr-app.template.html`. The four changes in `brsrapp-fix-spec.md` have landed, and the accuracy measurement is no longer blocked — see **Phase 3 status** below. Loose copies named `brsrapp.html`, `brsrapp2.html` and `brsrapp3.html` are earlier downloads of that same built file; `brsrapp3.html` matches the current one exactly.
+**Revision 13 — 9 Sep 2026.** Current. Phase 1 is built, demonstrated and unchanged. The BRSR extraction app is in the repository as **`brsr-app.html`**, generated from `app-src/brsr-app.template.html`. The four changes in `brsrapp-fix-spec.md` have landed, and the accuracy measurement is no longer blocked — see **Phase 3 status** below. The loose copies `brsrapp.html` and `brsrapp2.html` were deleted on 9 Sep 2026; `brsrapp3.html`, if kept, matches the current build exactly.
 
 **Full change history, with the reasoning behind each decision, is in `CHANGELOG.md`.** It was moved out of this file: eleven stacked revision notes had grown longer than some of the sections they described.
 

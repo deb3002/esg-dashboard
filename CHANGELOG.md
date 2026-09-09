@@ -12,10 +12,18 @@ Every change to this project, newest first, in plain language.
 
 **Where the app lives changed.** It is in the repository as `brsr-app.html`,
 generated from `app-src/brsr-app.template.html` by `tools/build_app.py`. The
-loose copies — `brsrapp.html`, `brsrapp2.html`, `brsrapp3.html` — are
-downloads of that built file at three points in time. `brsrapp3.html` matches
-the current one exactly. Editing a built copy loses the work at the next
-build, which is why the source is named everywhere now.
+loose copies — `brsrapp.html`, `brsrapp2.html`, `brsrapp3.html` — were
+downloads of that built file at three points in time. Editing a built copy
+loses the work at the next build, which is why the source is named
+everywhere now.
+
+**`brsrapp.html` and `brsrapp2.html` were deleted** from the project folder
+and from Downloads, as `brsrapp-fix-spec.md` asked once the four changes
+landed. They were the dangerous ones: they open perfectly well and silently
+lack the fixes. Both were moved to the Trash rather than erased, and both
+contents survive in this repository's history anyway — `brsrapp.html` is
+`brsr-app.html` at 28473c8, `brsrapp2.html` is the same file at 4455672.
+`brsrapp3.html` matches the current build exactly.
 
 **Eight faults found by running a real 513-page integrated annual report
 through it.** None showed on a standalone BRSR, which is why they survived.
