@@ -670,6 +670,17 @@ function gridRows(group, runs) {
   var xs = cluster(group.v.map(function (s) { return s.x; }), 3);
   if (ys.length < 2 || xs.length < 2) return [];
 
+  // Many filings draw only the column separators and leave the table's
+  // outer edges to the row rules. Building columns strictly between drawn
+  // verticals then dropped everything outside them: on the BRSR energy
+  // table that is the parameter names on the left and the whole previous
+  // financial year on the right, so the table yielded nothing at all. The
+  // rows' own extent supplies the missing outer edges.
+  var left = Math.min.apply(null, group.h.map(function (s) { return s.x0; }));
+  var right = Math.max.apply(null, group.h.map(function (s) { return s.x1; }));
+  if (xs[0] - left > 4) xs.unshift(left);
+  if (right - xs[xs.length - 1] > 4) xs.push(right);
+
   var rows = [];
   for (var r = 0; r + 1 < ys.length; r++) {
     var top = ys[r], bottom = ys[r + 1];
@@ -834,14 +845,24 @@ function figuresFromTable(rows, pageNo, carry) {
     });
     var lbl = carryLabel.filter(Boolean).join(" \u2014 ").replace(/\s+/g, " ").trim();
     rowLabels[q] = {label: lbl, own: got};
-    if (got && lbl) counts[lbl] = (counts[lbl] || 0) + 1;
+    // Counted on the label as it will finally read. SEBI keys the energy
+    // table's rows (A) to (F): "Total electricity consumption (A)" is the
+    // renewable one and "(D)" the non-renewable, and the key is stripped
+    // before the figure is named. Counting the unstripped form made the two
+    // look distinct, so neither was given its section and the profile
+    // showed one measure holding two different values for the same year.
+    if (got && lbl) {
+      var key = stripUnit(lbl);
+      counts[key] = (counts[key] || 0) + 1;
+    }
   }
   var section = "";
   for (var q2 = firstData; q2 < rows.length; q2++) {
     var rl = rowLabels[q2];
     if (!rl || !rl.label) continue;
-    if (counts[rl.label] > 1) rl.label = section ? section + " \u2014 " + rl.label : rl.label;
-    else if (rl.own) section = rl.label;
+    if (counts[stripUnit(rl.label)] > 1) {
+      rl.label = section ? section + " \u2014 " + rl.label : rl.label;
+    } else if (rl.own) section = rl.label;
   }
 
   var figures = [], seq = 0, prose = {}, proseOrder = [];
