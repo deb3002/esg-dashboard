@@ -258,6 +258,12 @@ function pageLines(content) {
   var runs = [];
   content.items.forEach(function (it) {
     if (!it.str || !it.str.trim()) return;
+    // Sideways text is the report's furniture, not its content: an annual
+    // report prints "Corporate Overview" and "Statutory Reports" as tabs
+    // turned on their side down the margin. Sharing a baseline with the
+    // body, they were spliced into the middle of sentences — "However, we
+    // Corporate Overview ensure that..." on a page a client reads.
+    if (Math.abs(it.transform[1]) > 0.01 || Math.abs(it.transform[2]) > 0.01) return;
     runs.push({x: it.transform[4], y: it.transform[5], s: it.str,
                w: it.width, h: it.height || Math.abs(it.transform[3]) || 0});
   });
@@ -1213,7 +1219,38 @@ function extractGri(pages, onLog) {
 }
 
 /* --- the whole extraction ------------------------------------------- */
+// A running header or footer is the same short line printed at the same
+// height on page after page — a web address, a report title, a page
+// number. Read as body text they were spliced into disclosures, so a
+// client's profile carried "www.example.com Note - the company procures..."
+// mid-answer. Identified by repetition and position rather than by what
+// they say, so nothing is matched on wording.
+function stripRunningHeads(pages) {
+  if (pages.length < 4) return;
+  function shape(line) {
+    var t = line.text.replace(/\d+/g, "#").replace(/\s+/g, " ").trim();
+    if (!t || t.length > 90) return null;
+    return Math.round(line.y / 6) + "|" + t;
+  }
+  var seen = {};
+  pages.forEach(function (pg) {
+    var once = {};
+    (pg.lines || []).forEach(function (l) {
+      var k = shape(l);
+      if (k && !once[k]) { once[k] = true; seen[k] = (seen[k] || 0) + 1; }
+    });
+  });
+  var limit = Math.max(4, Math.floor(pages.length * 0.15));
+  pages.forEach(function (pg) {
+    pg.lines = (pg.lines || []).filter(function (l) {
+      var k = shape(l);
+      return !(k && seen[k] >= limit);
+    });
+  });
+}
+
 function extractBrsr(pages, onLog) {
+  stripRunningHeads(pages);
   var loc = locate(pages);
   var problems = [];
   if (loc.sectionC === null) problems.push("No 'SECTION C' heading found.");
