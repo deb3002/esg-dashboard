@@ -20,7 +20,11 @@ tools/fixtures/
 tools/extraction/
 tools/fixtures/_apptest.html
 
-# playwright-core, installed only to run tools/test_app.js
+# playwright-core, installed only to run tools/test_app.js. Matched with and
+# without a trailing slash: when the tests run from a checkout that borrows an
+# install from a folder beside it, node_modules is a symlink rather than a
+# directory, and the slash form does not catch that.
+node_modules
 node_modules/
 package-lock.json
 _*.js
