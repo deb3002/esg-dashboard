@@ -84,14 +84,22 @@ to begin with.
 ### What you should not assume about it
 
 - **Its accuracy on real filings is only partly measured.** It has been run
-  against one real filed BRSR (42 pages). It found all nine principles, split
-  them into 91 indicators, and read 194 figures with their years, units and
-  page numbers. Spot-checked tables came out correct. That is one report, not
-  a measured accuracy rate — `phase3-spike-brief.md` still describes the
-  proper measurement.
+  against two real filings. A standalone filed BRSR (42 pages): all nine
+  principles found, 88 indicators, 204 figures with their years, units and
+  page numbers. A BRSR filed inside a 513-page integrated annual report
+  (Escorts Kubota, FY 2024-25): 108 indicators, 216 figures, 89 trend
+  series, in under four seconds. Tables checked against the printed page —
+  energy, water, waste, air emissions, Scope 1, 2 and 3 — came out as
+  published. That is two reports, not a measured accuracy rate;
+  `phase3-spike-brief.md` still describes the proper measurement.
 - **Some tables still yield nothing.** Tables whose layout it cannot read
   are skipped rather than guessed at, so the risk is a missing figure, not
   a wrong one.
+- **One measure can still hold two values for a year.** Where a table
+  repeats a row label under different sub-headings and the sub-heading is
+  not picked up, two different figures can end up under one name — six of
+  the annual report's 216 figures. The values and their pages are right;
+  the name does not tell them apart. The review step shows both.
 - **The Highlights text is uneven.** Where an answer is a table, the table
   is written out as readable prose. Where the report lays a question and
   its answer out inside a table, the text can still come through as
