@@ -108,13 +108,48 @@ function keyFigures(narrative) {
   check("all start unchecked", seen.left, 21);
   check("Generate is disabled until reviewed", seen.generateDisabled, true);
 
+  // The bulk button is deliberately not a way to satisfy the gate. It may
+  // only take indicators whose every figure was read with high confidence
+  // and which produced at least one figure; everything else has to be
+  // handled one at a time.
+  const bulkLabel = await page.evaluate(() =>
+    document.getElementById("approve-all").textContent.trim());
+  check("bulk button says how many it will act on", /^Approve the \d+ high-confidence indicators?$/.test(bulkLabel), true);
+
   await page.click("#approve-all");
-  const afterApprove = await page.evaluate(() => ({
+  const afterApprove = await page.evaluate(() => {
+    const st = window.BRSR_INTERNALS.state();
+    const approved = st.indicators.filter((i) => i.status === "approved");
+    return {
+      left: Number(document.getElementById("s-left").textContent),
+      generateDisabled: document.getElementById("generate").disabled,
+      approvedWithLowConfidence: approved.filter((i) =>
+        i.figures.some((f) => f.confidence < 0.8)).length,
+      approvedWithNoFigures: approved.filter((i) => i.figures.length === 0).length,
+    };
+  });
+  check("bulk approve leaves the uncertain ones pending", afterApprove.left > 0, true);
+  check("bulk approve never takes a low-confidence indicator", afterApprove.approvedWithLowConfidence, 0);
+  check("bulk approve never takes a figureless indicator", afterApprove.approvedWithNoFigures, 0);
+  check("Generate still disabled while anything is pending", afterApprove.generateDisabled, true);
+
+  // A reviewer then goes through the remainder, which is what the gate is for.
+  await page.evaluate(() => {
+    // The list is rebuilt after every click, so each button is looked up
+    // again rather than held from a stale NodeList.
+    const st = window.BRSR_INTERNALS.state();
+    for (let n = 0; n < st.indicators.length; n++) {
+      if (st.indicators[n].status !== "pending") continue;
+      const btn = document.querySelector('[data-ok="' + n + '"]');
+      if (btn) btn.click();
+    }
+  });
+  const afterAll = await page.evaluate(() => ({
     left: Number(document.getElementById("s-left").textContent),
     generateDisabled: document.getElementById("generate").disabled,
   }));
-  check("nothing left to check after Approve all", afterApprove.left, 0);
-  check("Generate is enabled once reviewed", afterApprove.generateDisabled, false);
+  check("nothing pending once every indicator is checked", afterAll.left, 0);
+  check("Generate is enabled once reviewed", afterAll.generateDisabled, false);
 
   await page.click("#generate");
   await page.waitForSelector("#step-done.on", { timeout: 60000 });

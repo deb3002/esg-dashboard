@@ -30,6 +30,10 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .drop p{margin:0 0 20px;color:var(--muted);font-size:15px}
 .note{background:var(--warn-bg);border-left:4px solid var(--warn);
   padding:12px 16px;margin:18px 0;font-size:14.5px;border-radius:0 6px 6px 0}
+.resume{display:flex;gap:16px;align-items:center;flex-wrap:wrap;
+  background:#eef4f8;border:1px solid #c9dbe6;border-radius:8px;
+  padding:12px 16px;margin:0 0 16px;font-size:14.5px}
+.resume-actions{margin-left:auto;display:flex;gap:10px}
 .bar{height:8px;background:#dde3e7;border-radius:5px;overflow:hidden;margin:18px 0}
 .bar>i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
 #log{font-size:14px;color:var(--muted);white-space:pre-line;min-height:80px}
@@ -116,7 +120,7 @@ iframe{width:100%;height:620px;border:1px solid var(--line);border-radius:8px;ba
     <div><b id="s-low">0</b><span>need a closer look</span></div>
     <div><b id="s-left">0</b><span>still to check</span></div>
     <div class="actions">
-      <button class="ghost" id="approve-all">Approve all</button>
+      <button class="ghost" id="approve-all" disabled>Approve the high-confidence indicators</button>
       <button id="generate" disabled>Generate the profile page</button>
     </div>
   </div>
@@ -125,6 +129,7 @@ iframe{width:100%;height:620px;border:1px solid var(--line);border-radius:8px;ba
     Each figure shows the page it came from — check it against the report.
     Correct anything wrong by typing over it, or exclude an indicator entirely.
   </div>
+  <div id="resume" class="resume" hidden></div>
   <div id="review"></div>
 </section>
 
@@ -136,6 +141,7 @@ iframe{width:100%;height:620px;border:1px solid var(--line);border-radius:8px;ba
     <p>
       <button id="dl-page">Download the profile page</button>
       <button class="ghost" id="dl-data">Download the data file</button>
+      <button class="ghost" id="dl-audit">Download the audit trail</button>
       <button class="ghost" id="again">Start again</button>
     </p>
     <div class="note" id="done-note"></div>
@@ -434,18 +440,83 @@ function brsrEnd(pages, startPage) {
   return last;
 }
 
-function locate(pages) {
-  var sectionC = null, seen = {}, ordered = [];
+// Which page Section C really starts on.
+//
+// A principle heading is only trusted from this page onward. Without that
+// fence the search took the first "Principle n" line anywhere in the
+// document, and a report mentions its principles long before the annexure
+// that answers them — in a contents list, in the policy narrative of
+// Section B, in a GRI index. The annual report tested here carries lines
+// like "Principle 6 - 3" in its GRI index on page 499, and names
+// "Section C" on seven separate pages.
+//
+// A candidate qualifies only if a Principle 1 heading AND an "Essential
+// Indicators" heading follow it within a few pages: that pair is what the
+// real annexure looks like and what a mention of it does not. The last
+// qualifying candidate wins, because a contents page naming Section C
+// comes before the section itself.
+var SECTION_C_LOOKAHEAD = 6;
+
+function principleNumberOn(line) {
+  var m = RE_PRINCIPLE.exec(line.text);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function firstPrinciple1Page(pages) {
+  for (var i = 0; i < pages.length; i++) {
+    var lines = (pages[i] || {}).lines || [];
+    for (var j = 0; j < lines.length; j++) {
+      if (principleNumberOn(lines[j]) === 1) return i + 1;
+    }
+  }
+  return null;
+}
+
+function sectionCStart(pages) {
+  var named = [];
+  pages.forEach(function (pg, i) {
+    var joined = ((pg || {}).lines || []).map(function (l) { return l.text; }).join("\n");
+    if (RE_SECTION_C.test(joined)) named.push(i + 1);
+  });
+
+  var qualifying = named.filter(function (n) {
+    var sawP1 = false, sawEssential = false;
+    var last = Math.min(pages.length, n + SECTION_C_LOOKAHEAD);
+    for (var p = n; p <= last; p++) {
+      var lines = (pages[p - 1] || {}).lines || [];
+      for (var j = 0; j < lines.length; j++) {
+        if (principleNumberOn(lines[j]) === 1) sawP1 = true;
+        if (RE_ESSENTIAL.test(lines[j].text)) sawEssential = true;
+      }
+    }
+    return sawP1 && sawEssential;
+  });
+
+  if (qualifying.length) {
+    return {page: qualifying[qualifying.length - 1], named: named, fallback: false};
+  }
+  // Some standalone filings omit the heading altogether.
+  return {page: firstPrinciple1Page(pages), named: named, fallback: true};
+}
+
+function locate(pages, onLog) {
+  var start = sectionCStart(pages);
+  var sectionC = start.page, seen = {}, ordered = [];
+  if (start.fallback && onLog) {
+    onLog(start.named.length
+      ? "No 'Section C' heading looked like the start of the principles, so the " +
+        "first 'Principle 1' heading was used instead. Check the page numbers below."
+      : "This report has no 'Section C' heading, so the first 'Principle 1' " +
+        "heading was used as the start. Check the page numbers below.");
+  }
   pages.forEach(function (pg, i) {
     var n = i + 1;
+    if (sectionC !== null && n < sectionC) return;   // before the annexure
     var lines = pg.lines || [];
-    var joined = lines.map(function (l) { return l.text; }).join("\n");
-    if (sectionC === null && RE_SECTION_C.test(joined)) sectionC = n;
     lines.forEach(function (l) {
-      var m = RE_PRINCIPLE.exec(l.text);
-      if (m) {
-        var p = parseInt(m[1], 10);
-        if (!seen[p]) { seen[p] = true; ordered.push({p: p, page: n, y: l.y}); }
+      var p = principleNumberOn(l);
+      if (p !== null && !seen[p]) {
+        seen[p] = true; ordered.push({p: p, page: n, y: l.y});
       }
     });
   });
@@ -461,7 +532,8 @@ function locate(pages) {
     var end = nxt ? nxt.page : brsrEnd(pages, o.page);
     ranges[o.p] = [o.page, Math.max(o.page, end), o.y, nxt ? nxt.y : null];
   });
-  return {sectionC: sectionC, ranges: ranges};
+  return {sectionC: sectionC, sectionCNamed: start.named,
+          sectionCFallback: start.fallback, ranges: ranges};
 }
 
 /* --- split ----------------------------------------------------------- */
@@ -1267,7 +1339,7 @@ function stripRunningHeads(pages) {
 
 function extractBrsr(pages, onLog) {
   stripRunningHeads(pages);
-  var loc = locate(pages);
+  var loc = locate(pages, onLog);
   var problems = [];
   if (loc.sectionC === null) problems.push("No 'SECTION C' heading found.");
   if (!Object.keys(loc.ranges).length) problems.push("No 'PRINCIPLE n' headings found.");
@@ -1523,6 +1595,50 @@ function profilePage(rows, company) {
 
 var PROFILE_BODY = "<a class=\"skip-link\" href=\"#disclosures\">Skip to disclosures</a>\n\n<header class=\"page-header\">\n  <div class=\"wrap\">\n    <h1 id=\"company-name\">ESG Profile</h1>\n    <p class=\"subtitle\">ESG Profile</p>\n    <p class=\"meta\" id=\"updated-line\"></p>\n  </div>\n</header>\n\n<div class=\"filter-bar\">\n  <div class=\"wrap\">\n    <div class=\"filter-row\">\n\n      <div class=\"field\">\n        <label for=\"theme-select\">Theme</label>\n        <select id=\"theme-select\">\n          <option>All Themes</option>\n        </select>\n      </div>\n\n      <div class=\"field\">\n        <label for=\"keyword-select\">Keyword</label>\n        <select id=\"keyword-select\">\n          <option>All Keywords</option>\n        </select>\n      </div>\n\n      <div class=\"field\">\n        <label for=\"framework-select\">Framework</label>\n        <select id=\"framework-select\">\n          <option>All Frameworks</option>\n        </select>\n      </div>\n\n      <div class=\"field field-search\">\n        <label for=\"search-input\">Search</label>\n        <div class=\"search-wrap\">\n          <input type=\"search\" id=\"search-input\" placeholder=\"Search disclosures&hellip;\"\n                 autocomplete=\"off\" spellcheck=\"false\">\n          <button type=\"button\" id=\"clear-search\" class=\"clear-search\"\n                  aria-label=\"Clear search\" hidden>&times;</button>\n        </div>\n      </div>\n\n      <div class=\"field field-actions\">\n        <span class=\"field-spacer\" aria-hidden=\"true\"></span>\n        <div class=\"actions\">\n          <button type=\"button\" id=\"download-csv-btn\" class=\"btn\">Download CSV</button>\n          <button type=\"button\" id=\"print-btn\" class=\"btn\">Print / PDF</button>\n        </div>\n      </div>\n\n    </div>\n    <p class=\"count-line\" id=\"visible-count\" aria-live=\"polite\"></p>\n  </div>\n</div>\n\n<main class=\"wrap\" id=\"disclosures\">\n\n  <p class=\"print-summary\" id=\"print-summary\"></p>\n\n  <table class=\"disclosure-table\" id=\"disclosure-table\">\n    <thead>\n      <tr>\n        <th scope=\"col\" class=\"col-subfactor\">Sub Factor</th>\n        <th scope=\"col\" class=\"col-keywords\">Keywords</th>\n        <th scope=\"col\" class=\"col-documents\">Documents</th>\n        <th scope=\"col\" class=\"col-highlights\">Highlights</th>\n      </tr>\n    </thead>\n    <tbody id=\"table-body\"></tbody>\n  </table>\n\n  <div class=\"empty-state\" id=\"empty-state\" hidden>\n    <p>No disclosures match your filters.</p>\n    <button type=\"button\" id=\"clear-filters-btn\" class=\"link-btn\">Clear filters</button>\n  </div>\n\n</main>\n\n<footer class=\"page-footer\">\n  <div class=\"wrap\">\n    <p id=\"footer-note\">Demonstration build &mdash; company name, people and document\n      links have been replaced. Reported figures are unchanged.</p>\n  </div>\n</footer>";
 
+/* --- audit trail ------------------------------------------------------ */
+// Where every number came from and what a person decided about it. For an
+// investor relations team this outlives the profile page: it turns "our
+// figures are traceable" from a claim into a file that can be handed to a
+// client or an auditor. The data was always in the app; it just never left.
+//
+// Excluded and dropped figures are in it too. A reviewer's decision to
+// reject a figure is part of the record, not an absence from it.
+var AUDIT_COLUMNS = ["indicator", "question", "measure", "value", "unit", "year",
+                     "page", "read_from", "confidence", "original_value",
+                     "status", "source_file", "generated_at"];
+
+// Same rules the Tier 1 viewer's export already proved: every field
+// quoted, internal quotes doubled, CRLF endings, and a byte-order mark so
+// Excel reads it as UTF-8 instead of mangling the characters.
+function csvCell(v) {
+  return '"' + String(v === null || v === undefined ? "" : v).replace(/"/g, '""') + '"';
+}
+
+function auditCsv(state) {
+  var stamp = new Date().toISOString();
+  var lines = [AUDIT_COLUMNS.map(csvCell).join(",")];
+  state.indicators.forEach(function (ind) {
+    ind.figures.forEach(function (f) {
+      lines.push([
+        ind.code,
+        ind.question,
+        f.measure,
+        f.raw,                      // as approved, in the form the report printed
+        f.unit,
+        f.year,
+        f.page,
+        f.source === "table" ? "table" : "text",
+        f.confidence,
+        f.originalRaw === undefined ? "" : f.originalRaw,
+        f.dropped ? "dropped" : ind.status,
+        state.filename,
+        stamp
+      ].map(csvCell).join(","));
+    });
+  });
+  return "\ufeff" + lines.join("\r\n") + "\r\n";
+}
+
 function download(name, text, type) {
   var blob = new Blob([text], {type: type || "text/plain;charset=utf-8"});
   var url = URL.createObjectURL(blob);
@@ -1546,6 +1662,172 @@ function log(msg) { $("log").textContent += msg + "\n"; }
 function progress(frac) { $("bar").style.width = Math.round(frac * 100) + "%"; }
 function esc(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/* --- keeping the reviewer's work ------------------------------------- */
+// Going through ~140 indicators takes about an hour. Losing that to a
+// reload, a crash or a closed tab is the worst thing this app can do to
+// someone, and it used to do it silently.
+//
+// The Tier 1 viewer deliberately keeps nothing in browser storage so its
+// filters reset on reload. That reasoning does not carry over: this is a
+// long piece of human work, not a transient view of a table.
+//
+// Only the review decisions are stored — statuses, corrections, dropped
+// figures — never the extraction, which is rebuilt from the PDF in
+// seconds. The key is a fingerprint of the file itself, so two reports
+// cannot overwrite one another and a different PDF never restores the
+// wrong work.
+var STORE_PREFIX = "brsr-review:";
+var REVIEW_FP = null;
+var storageWarned = false;
+
+// FNV-1a over the file's bytes. Not a security hash — it only has to tell
+// two reports apart.
+function fingerprint(buf, name) {
+  var b = new Uint8Array(buf), h = 0x811c9dc5;
+  for (var i = 0; i < b.length; i++) {
+    h ^= b[i];
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return (h >>> 0).toString(16) + "-" + b.length + "-" +
+         String(name || "").replace(/[^a-z0-9.]+/gi, "").slice(0, 40);
+}
+
+// Storage can be absent, disabled or full — private windows, quota limits.
+// Every path degrades to the leave-warning rather than breaking the app.
+function safeStore(fn, fallback) {
+  try { return fn(); }
+  catch (e) {
+    if (!storageWarned) {
+      storageWarned = true;
+      log("This browser will not let the app save your review progress, so it " +
+          "cannot be restored after a reload. Everything else works normally.");
+    }
+    return fallback;
+  }
+}
+
+function reviewSnapshot() {
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    filename: STATE.filename,
+    codes: STATE.indicators.length,
+    indicators: STATE.indicators.map(function (ind) {
+      return {
+        code: ind.code,
+        status: ind.status,
+        figures: ind.figures.map(function (f) {
+          return {dropped: !!f.dropped, edited: !!f.edited,
+                  measure: f.measure, raw: f.raw, value: f.value, unit: f.unit,
+                  originalRaw: f.originalRaw === undefined ? null : f.originalRaw};
+        })
+      };
+    })
+  };
+}
+
+var saveTimer = null;
+function saveReview() {
+  if (!STATE || !REVIEW_FP || !STATE.indicators) return;
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(function () {
+    safeStore(function () {
+      window.localStorage.setItem(STORE_PREFIX + REVIEW_FP,
+                                  JSON.stringify(reviewSnapshot()));
+      return true;
+    }, false);
+  }, 400);
+}
+
+function readSaved(fp) {
+  return safeStore(function () {
+    var raw = window.localStorage.getItem(STORE_PREFIX + fp);
+    return raw ? JSON.parse(raw) : null;
+  }, null);
+}
+
+function clearSaved() {
+  if (!REVIEW_FP) return;
+  safeStore(function () {
+    window.localStorage.removeItem(STORE_PREFIX + REVIEW_FP); return true;
+  }, false);
+}
+
+// Applied only when the saved work describes the same indicators, so a
+// re-extraction that has changed shape can never be silently mismatched.
+function restoreReview(saved) {
+  if (!saved || !saved.indicators ||
+      saved.indicators.length !== STATE.indicators.length) return false;
+  for (var i = 0; i < saved.indicators.length; i++) {
+    if (saved.indicators[i].code !== STATE.indicators[i].code) return false;
+  }
+  saved.indicators.forEach(function (si, i) {
+    var ind = STATE.indicators[i];
+    ind.status = si.status || "pending";
+    (si.figures || []).forEach(function (sf, fi) {
+      var f = ind.figures[fi];
+      if (!f) return;
+      f.dropped = !!sf.dropped;
+      if (sf.edited) {
+        f.edited = true;
+        f.measure = sf.measure; f.raw = sf.raw; f.value = sf.value; f.unit = sf.unit;
+        if (sf.originalRaw !== null && sf.originalRaw !== undefined) {
+          f.originalRaw = sf.originalRaw;
+        }
+      }
+    });
+  });
+  return true;
+}
+
+function pendingCount() {
+  if (!STATE || !STATE.indicators) return 0;
+  return STATE.indicators.filter(function (i) { return i.status === "pending"; }).length;
+}
+
+// The five-minute version of the same protection, and the one that works
+// when storage is unavailable.
+window.addEventListener("beforeunload", function (ev) {
+  if (!STATE || !STATE.indicators || !STATE.indicators.length) return;
+  if (pendingCount() === 0) return;
+  ev.preventDefault();
+  ev.returnValue = "";
+  return "";
+});
+
+// Restoring is offered, never done for you: the reviewer decides whether
+// last session's decisions still stand.
+function offerRestore(saved) {
+  var host = $("resume");
+  if (!saved) { host.hidden = true; return; }
+  var when = saved.savedAt ? new Date(saved.savedAt) : null;
+  var checked = (saved.indicators || []).filter(function (i) {
+    return i.status && i.status !== "pending";
+  }).length;
+  host.innerHTML =
+    "<span><strong>You reviewed this report before.</strong> " +
+    checked + " of " + saved.indicators.length + " indicators were checked" +
+    (when ? ", last saved " + when.toLocaleString() : "") + ".</span>" +
+    "<span class='resume-actions'>" +
+    "<button class='pill' id='resume-yes'>Restore that review</button>" +
+    "<button class='pill' id='resume-no'>Start this one clean</button></span>";
+  host.hidden = false;
+  $("resume-yes").addEventListener("click", function () {
+    if (restoreReview(saved)) {
+      host.hidden = true;
+      renderReview();
+      log("Restored your earlier review of this report.");
+    } else {
+      host.hidden = true;
+      log("The saved review did not match this extraction, so it was not used.");
+    }
+  });
+  $("resume-no").addEventListener("click", function () {
+    host.hidden = true;
+    clearSaved();
+  });
 }
 
 function renderReview() {
@@ -1595,6 +1877,26 @@ function renderReview() {
   refreshCounts();
 }
 
+// Which indicators the bulk button is allowed to touch.
+//
+// A single button that satisfies the review gate for every indicator makes
+// the gate ceremonial: the gate is the property that lets a figure be
+// published under a client's name, so it has to mean something. This
+// approves only what a reviewer would have waved through anyway — an
+// indicator that actually produced figures, every one of them read with
+// high confidence.
+//
+// A low-confidence figure counts even when the reviewer has dropped it.
+// That is deliberately the strict reading: dropping is itself a judgement,
+// and an indicator someone has already had to think about is one they can
+// approve individually, which is one click.
+function bulkApprovable(ind) {
+  if (ind.status !== "pending") return false;
+  if (!ind.figures.length) return false;
+  if (!ind.figures.some(function (f) { return !f.dropped; })) return false;
+  return ind.figures.every(function (f) { return f.confidence >= 0.8; });
+}
+
 function refreshCounts() {
   var figs = 0, low = 0, left = 0;
   STATE.indicators.forEach(function (i) {
@@ -1610,6 +1912,17 @@ function refreshCounts() {
   $("s-left").textContent = left;
   var anyApproved = STATE.indicators.some(function (i) { return i.status === "approved"; });
   $("generate").disabled = (left > 0) || !anyApproved;
+
+  var bulk = STATE.indicators.filter(bulkApprovable).length;
+  var btn = $("approve-all");
+  btn.textContent = bulk === 1
+    ? "Approve the 1 high-confidence indicator"
+    : "Approve the " + bulk + " high-confidence indicators";
+  btn.disabled = bulk === 0;
+  btn.title = bulk === 0
+    ? "Nothing left that was read with high confidence. The rest have to be checked one by one."
+    : "Approves only indicators whose every figure was read with high confidence. " +
+      "Anything uncertain, and anything with no figures, stays for you to check.";
 }
 
 $("review").addEventListener("click", function (ev) {
@@ -1628,6 +1941,7 @@ $("review").addEventListener("click", function (ev) {
     f.dropped = !f.dropped;
     renderReview();
   }
+  saveReview();
 });
 
 $("review").addEventListener("input", function (ev) {
@@ -1635,19 +1949,24 @@ $("review").addEventListener("input", function (ev) {
   if (!t.dataset || t.dataset.k === undefined) return;
   var f = STATE.indicators[t.dataset.i].figures[t.dataset.f];
   if (t.dataset.k === "raw") {
+    // Kept once, on the first correction: the audit trail has to show what
+    // the extractor read as well as what the reviewer decided it should be.
+    if (f.originalRaw === undefined) f.originalRaw = f.raw;
     var parsed = parseNumber(t.value);
     if (parsed) { f.value = parsed.value; f.raw = parsed.raw; }
   } else {
     f[t.dataset.k] = t.value;
   }
   f.edited = true;
+  saveReview();
 });
 
 $("approve-all").addEventListener("click", function () {
   STATE.indicators.forEach(function (i) {
-    if (i.status === "pending") i.status = "approved";
+    if (bulkApprovable(i)) i.status = "approved";
   });
   renderReview();
+  saveReview();
 });
 
 $("generate").addEventListener("click", function () {
@@ -1672,8 +1991,17 @@ $("dl-page").addEventListener("click", function () {
 $("dl-data").addEventListener("click", function () {
   download("disclosures.js", STATE.dataJs, "text/javascript");
 });
+$("dl-audit").addEventListener("click", function () {
+  var d = new Date();
+  var day = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") +
+            "-" + String(d.getDate()).padStart(2, "0");
+  download(slug(STATE.company) + "-audit-trail-" + day + ".csv",
+           auditCsv(STATE), "text/csv;charset=utf-8;");
+});
 $("again").addEventListener("click", function () {
-  STATE = null; $("log").textContent = ""; progress(0); show("step-drop");
+  STATE = null; REVIEW_FP = null;
+  $("resume").hidden = true;
+  $("log").textContent = ""; progress(0); show("step-drop");
 });
 
 function slug(s) {
@@ -1733,6 +2061,9 @@ function handleFile(file) {
 
   var LIB = null, DOC_META = null;
   file.arrayBuffer().then(function (buf) {
+    // Taken before pdf.js is handed the buffer, so the review can be tied
+    // to this exact file and never to a different report.
+    REVIEW_FP = fingerprint(buf, file.name);
     return loadPdfJs().then(function (lib) {
       LIB = lib;
       return lib.getDocument({data: buf, disableFontFace: true}).promise;
@@ -1800,6 +2131,7 @@ function handleFile(file) {
     STATE = result;
     renderReview();
     show("step-review");
+    offerRestore(readSaved(REVIEW_FP));
   }).catch(function (err) {
     show("step-drop");
     $("step-drop").insertAdjacentHTML("beforeend",
@@ -1833,7 +2165,9 @@ window.BRSR_INTERNALS = {
   pageSegments: pageSegments, groupTables: groupTables, gridRows: gridRows,
   extractGri: extractGri, findGriIndex: findGriIndex, griColumns: griColumns,
   parseGriIndex: parseGriIndex, griFigures: griFigures, normaliseCode: normaliseCode,
-  figuresFromTable: figuresFromTable,
+  figuresFromTable: figuresFromTable, auditCsv: auditCsv,
+  bulkApprovable: bulkApprovable, sectionCStart: sectionCStart, locate: locate,
+  brsrEnd: brsrEnd, questionOn: questionOn, questionColumns: questionColumns,
   state: function () { return STATE; }
 };
 })();
