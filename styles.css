@@ -239,6 +239,11 @@ main { padding: 22px 24px 60px; }
 .subfactor-cell {
   font-weight: 600;
   color: var(--text);
+  /* BRSR question titles run terms together with slashes and no spaces —
+     "fines/penalties/punishment/award/compounding" — which a browser will
+     not break, so the title overflowed its column and printed on top of
+     the framework tags beside it. */
+  overflow-wrap: anywhere;
 }
 
 .category-row th {
@@ -527,6 +532,7 @@ main { padding: 22px 24px 60px; }
 .highlights-text {
   margin: 0;
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .highlights-text:not(.expanded) {
