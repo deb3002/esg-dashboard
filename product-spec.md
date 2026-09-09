@@ -1,22 +1,21 @@
 # Product Spec — ESG Disclosure Profile Viewer (Tier 1 MVP)
 
-**Revision 11 — 7 Sep 2026.** **IFC narrowed from 141 rows to 49**, after seeing the rendered page. Two exclusions added: GRI 2 and 3 no longer map to PS1 (they were filing contact details under "Assessment and Management of E&S Risks" — 26 admin rows in a 74-row bucket), and IFC is no longer derived from principle-level GRI answers (the Section A union includes GRI 401/405, which put "CIN" under Labour and Working Conditions). The `?` on IFC tags is removed — the label already reads "by GRI alignment" — duplicate keyword pills are hidden, and the tag column widened from 15% to 19%.
+**Revision 12 — 9 Sep 2026.** Current. Phase 1 is built, demonstrated and unchanged. A BRSR extraction prototype (`brsrapp2.html`) now exists — see **Phase 3 status** below.
 
-**Revision 10 — 7 Sep 2026.** **The table regroups by the selected framework.** Choosing IFC reorganises section headings under Performance Standards PS1–PS8, mirroring how the reference portal presents them; any other selection groups by source category. Headings gain a code chip, full name and disclosure count. Row elements are reused across layouts, so expand state and filter behaviour survive regrouping.
+**Full change history, with the reasoning behind each decision, is in `CHANGELOG.md`.** It was moved out of this file: eleven stacked revision notes had grown longer than some of the sections they described.
 
-**Revision 9 — 7 Sep 2026.** **IFC returns to the filter on 141 rows, derived by alignment rather than sourced.** IFC's January 2025 benchmarking rates GRI-to-Performance-Standard alignment at series level; chaining BRSR indicator → GRI → IFC produces a claim no single document makes. IFC tags are therefore marked unverified, render hollow, and carry "by GRI alignment" in their label. GRI 200-series is excluded, its alignment being rated weak by the same source. Note: IFC's handbook contains detailed tables (C.3, D.2, E.2) that could not be retrieved — only pages 1–52 of ~80 were readable — so a better mapping may exist.
+## Phase 3 status — extraction prototype exists
 
-**Revision 8 — 7 Sep 2026.** BRSR **indicator numbers** added from SEBI's official format — all 149 BRSR rows coded (`P6-E1`, `A18`, `P5-E3`). With indicators known, GRI mapping moves from principle level to **indicator level for 114 rows**; 35 keep the principle-level fallback where the 2022 linkage document has no entry. Indicator codes and GRI disclosures are both shown on the page rather than in tooltips. See **Reporting Frameworks**.
+`brsrapp2.html` reads a BRSR or sustainability report PDF and generates a profile from it, entirely in the browser. It is **not** part of the Tier 1 build and does not change anything in this spec; the viewer it produces is the same one specified here.
 
-**Revision 7 — 7 Sep 2026.** The GRI mapping is rebuilt on the **published GRI–SEBI BRSR linkage document** (GRI with BSE, 2022) instead of keyword matching. GRI is now applied at BRSR principle level to the 149 BRSR rows, is fully sourced, and the provisional marking and warning banner are removed because nothing is guessed any more. IFC is withdrawn from the filter — no equivalent published linkage exists. Superseded revision 6, which tagged 445 GRI and 324 IFC rows by keyword.
+What it establishes, and what it does not:
 
-**Revision 5 — 7 Sep 2026.** Trend charts move into scope and are built — see **Trend Charts**. The discontinuity guard is the substantive part: five series are flagged, and the GHG emissions series would otherwise have shown a false twelvefold rise.
+- **Established:** extraction needs no AI model, no network and no per-report cost. It is regex plus geometric layout parsing, so failures are deterministic and traceable to a pattern rather than probabilistic.
+- **Established:** the review gate works as a product. Every indicator must be approved or excluded before a profile can be generated — enforced in code, not by convention.
+- **Not established: accuracy.** Nobody has run it against a report with known-correct answers. Until that number exists, the review model — whether a client can check their own profile or whether Debraj must — stays open.
+- **Known defect:** the current version, `brsrapp2.html`, mis-locates two of the nine BRSR principles on the bundled test PDF, because it detects the Section C page and then does not use it. Four fixes are specified in `brsrapp-fix-spec.md`. **The accuracy measurement is blocked behind the first of them.**
 
-**Revision 4 — 7 Sep 2026. Phase 1 is BUILT.** This spec is now a record of what exists as much as a plan. Changes in this revision: the anonymisation decision is settled and specified (see **Anonymisation**); the converter, page, filters, metrics, CSV and print stylesheet are implemented and verified; the Open Questions list is reduced to what is genuinely still open. Items raised in the GTM meeting of 21 Aug 2026 are recorded under **Requested but not built**.
-
-**Revision 3 — 10 Aug 2026.** Adds filtered CSV download and print-to-PDF (see **Export**). These were on the "Left Out" list in revisions 1–2; the owner has moved them into scope. `.xlsx`, Word and PDF-library generation remain out.
-
-**Revision 2 — 10 Aug 2026.** Superseded the original spec, which was written before the real source data was available and assumed ~25 hand-authored sample rows. The real export (`ESGReport.xls`) is far richer and does not have the shape the first version assumed. Sections that changed are marked **[CHANGED]**.
+See `brsrapp-fix-spec.md` for the changes, `phase3-spike-brief.md` for the measurement that follows, and `phase3-architecture.md` for the wider design.
 
 ## How to verify a change
 

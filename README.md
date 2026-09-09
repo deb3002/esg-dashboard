@@ -393,6 +393,13 @@ The 28 categories in the spreadsheet (things like "Board of Directors" or "BRSR 
 | `tools/test.js` | The 107 checks. |
 | `ESGReport.xls` | The source export. Deliberately **not** in version control — it carries the real company name, CIN, contact details and director biographies. |
 | `product-spec.md` | What was built and why, with every decision recorded. |
+| `CHANGELOG.md` | Every change and the reasoning behind it. |
+| `brsr-app.html` | **Generated.** The report-to-profile app: drop in a PDF, get a profile. Built by `tools/build_app.py`. |
+| `app-src/brsr-app.template.html` | The source that app is built from. Edit this, never the built file. |
+| `vendor/` | pdf.js, embedded into the app at build time. It never reaches the shipped viewer. |
+| `tools/test-extract.js` | Checks on the extraction rules. Runs in Node, no browser and no PDF. |
+| `tools/test_app.js` | Drives the app in a browser against a fixture PDF. |
+| `brsrapp-fix-spec.md` | The four changes specified for the app, and how they were to be verified. |
 | `push-to-github.command` | Double-click to commit and push. |
 
 ## What this build deliberately does not do

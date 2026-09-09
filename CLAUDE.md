@@ -51,7 +51,13 @@ tools/convert.py                    ESGReport.xls -> data/disclosures.js
 tools/brsr_indicators.py            BRSR/GRI/IFC mapping tables + their sources
 tools/test.js                       the 107 checks
 ESGReport.xls                       source export (gitignored — see Ground rules)
+
+brsrapp2.html                       Phase 3 prototype, CURRENT — PDF in, profile out.
+brsrapp.html                        older version; superseded, ask before deleting
+brsrapp-fix-spec.md                 four specified changes, not yet made
 ```
+
+**Read `CHANGELOG.md` before changing anything.** It records why decisions were made, including several that look odd until you know what went wrong with the obvious approach.
 
 - **Stack:** plain HTML, CSS, vanilla JavaScript. No framework, no build step.
 - **`tools/` is a developer-only exception.** It runs on Debraj's machine, never in the browser. Whatever it needs must never reach the shipped page.
@@ -63,6 +69,24 @@ ESGReport.xls                       source export (gitignored — see Ground rul
 Phase 1 is **built and running**: converter, page, theme/keyword/framework filters, search, metrics, trend charts, CSV export, print stylesheet. Data is the real 663-row export, anonymised. The page has been opened in a browser and looks right.
 
 **One thing is deliberately unbuilt: the E/S/G filter.** Debraj must sign off the classification mapping first, because a client may ask him to defend any row's classification. Rule-based classification reaches about 84%; 105 rows are genuinely none of the three. Details in `product-spec.md`.
+
+## `brsrapp.html` — the Phase 3 prototype
+
+A single self-contained file that reads a report PDF and generates a profile. **It is not part of the Tier 1 build** — do not wire it into `index.html`, and do not let its dependencies near the shipped page. PDF.js is embedded in it as base64 precisely so it stays self-contained.
+
+Three properties that must survive any change to it:
+
+- **The review gate.** Generate stays disabled until every indicator is approved or excluded. Never publish unreviewed output.
+- **No rounding of figures.** `Math.round` appears only in layout geometry. Keep it that way.
+- **No network, no AI model, no credentials.** Extraction is regex and geometry. That is what makes it free to run and safe to hand to a client.
+
+**Work on `brsrapp2.html`** — it has `brsrEnd`, `stripRunningHeads` and y-aware principle ranges. `brsrapp.html` is the older version.
+
+**Known defect, verified 9 Sep 2026.** `locate()` detects the Section C page and never uses it, so it takes the first "Principle *n*" line anywhere in the document. On the bundled BRSR PDF, a *"Principle 9 of the NGRBCs"* line on page 17 anchors P9 to Section B, and P8 then absorbs P9's real content from page 41. **Two of nine principles produce wrong output.** Fixing this is change 1 in `brsrapp-fix-spec.md`, and it is also what annual-report support needs.
+
+Other gaps: review work is not saved anywhere (a reload loses about an hour), "Approve all" can satisfy the review gate without reading anything, review runs in document order rather than confidence order, and there is no audit-trail export.
+
+**Its accuracy has never been measured, and must not be measured until change 1 lands** — scoring against a locator that mis-assigns two principles gives a number that is wrong in a way nobody would notice.
 
 ## Three things that must not be undone
 

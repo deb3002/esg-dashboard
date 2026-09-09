@@ -1,9 +1,11 @@
 # Phase 3 Feasibility Spike — Can we extract a BRSR accurately enough?
 
-**Revision 2 — 8 Sep 2026.** The answer key is corrected. Revision 1 specified it as the metric values on the 21 Principle 6 rows; **those rows carry no metric values at all** — every structured figure in the export sits under other categories. The figures are present, but as prose inside the narrative text, so building the answer key is now an explicit first step with its own budget. Also added: the scoring note for `P6-L1`, which the portal profile omits; the caveat that the indicator schema is keyed on the portal's row titles rather than SEBI's question wording; and a worked example of a key that is itself wrong.
-
-**Timebox: two weeks. No server, no interface, no accounts.**
+**Timebox: was two weeks. Now roughly a day.**
 The only output is a number and a failure log.
+
+> **BLOCKED — 9 Sep 2026. Do not run this yet.** The extractor mis-locates two of the nine principles on the very file this spike uses: a "Principle 9 of the" line on page 17 (Section B) anchors P9 there, which also lets P8 absorb P9's real content. Measuring now would produce a number that is wrong in a way nobody would notice. **Fix change 1 in `brsrapp-fix-spec.md` first, then run this.**
+>
+> **Updated 9 Sep 2026.** `brsrapp2.html` now does the extracting. This brief was written when the extractor had to be built first; it does not. **The spike is now a measurement exercise, not a build.** Run the prototype on the report below, compare its output against the answer key, count. Everything else here still applies — especially what to measure and what the result means.
 
 ---
 
@@ -15,13 +17,11 @@ Nothing else — not the upload flow, not the review screen, not hosting — is 
 
 ## Why this is more tractable than it looks
 
-**A BRSR is a form, not an essay.** SEBI's Annexure I (circular 2021/562) fixes a set of numbered indicators in a fixed order — 146 distinct codes are transcribed in this project — and every filing answers the same questions in the same sequence. Extraction is therefore *filling a known schema*, not open-ended document understanding.
+**A BRSR is a form, not an essay.** SEBI's Annexure I (circular 2021/562) fixes ~140 numbered indicators in a fixed order, and every filing answers the same questions in the same sequence. Extraction is therefore *filling a known schema*, not open-ended document understanding.
 
 That schema already exists in this project: `tools/brsr_indicators.py`.
 
-**One caveat on reusing it.** `INDICATOR_CODES` maps *the portal's row titles* to SEBI codes — `"Energy Consumption" → P6-E1`. A filed report contains SEBI's actual question wording ("Details of total energy consumption (in Joules or multiples) and energy intensity"), not the portal's shorthand. The code list and its ordering are directly reusable; the lookup keys are not, and matching against the PDF needs SEBI's question text instead.
-
-**And we already have an answer key.** `ESGReport.xls` is Churchgate's manually-curated profile for Escorts Kubota, built by an analyst from the same annual report that is public. That gives 663 known-correct rows across the whole profile. Extraction accuracy can be *measured*, not estimated.
+**And we already have an answer key.** `ESGReport.xls` is Churchgate's manually-curated profile for Escorts Kubota, built by an analyst from the same annual report that is public. That gives 663 known-correct rows, 96 of them carrying exact figures. Extraction accuracy can be *measured*, not estimated.
 
 That is an unusual position to start from. Use it.
 
@@ -39,25 +39,13 @@ Why this section and not a broader sample:
 
 Do not broaden the scope to make the result look better.
 
-**One gap to score correctly.** The portal's 21 rows run `P6-E1`–`P6-E12`, then `P6-L2`–`P6-L9`, plus `P6-Core`. **`P6-L1` is absent from the profile.** Extracting the full Principle 6 from SEBI's format will therefore produce at least one indicator with no counterpart in the key. Score that as *not in key*, not as a miss — otherwise accuracy is understated by construction.
-
 ## Inputs
 
 | | |
 |---|---|
-| Source report | Escorts Kubota Integrated Annual Report FY 2025-26 (public PDF, ~300 pages; the URL is in the source export's link column) |
-| Answer key | The figures reported in the **narrative text** of the 21 rows under `BRSR Section C: Principle 6` in `ESGReport.xls`, transcribed by hand into a scoreable list before extraction begins — see below |
-| Schema | `INDICATOR_CODES` in `tools/brsr_indicators.py`, re-keyed to SEBI's question wording |
-
-**Two practical notes.** `ESGReport.xls` is deliberately kept out of version control, so it must be supplied from the owner's machine. And the anonymised build in `data/disclosures.js` has every document URL stripped — the annual report link is in the *real* export only.
-
-### The answer key has to be built first
-
-**The 21 Principle 6 rows carry no structured metric values.** Every one of the 265 structured figures in the export sits under a different category — Social 91, Governance 74, Environment 72, the rest scattered. Principle 6 has none. The GHG and water figures one would expect there are filed under **Environment**.
-
-The figures are still present, as prose inside the narrative. There are **277 numeric tokens across the 21 narratives** — energy split by renewable and non-renewable source, water withdrawal broken out five ways, Scope 1 and Scope 2 with intensity ratios, each with two financial years. That is a richer sample than the structured metrics would have given.
-
-So: **transcribe those figures by hand into a scoreable list, and do it before the extractor runs.** Budget half a day to a day. Doing it afterwards invites the key and the output to converge.
+| Source report | `BusinessResponsibilityandSustainabilityReport.pdf`, now in this folder |
+| Answer key | The 21 rows under `BRSR Section C: Principle 6` in `ESGReport.xls`, plus their metric values |
+| Schema | `INDICATOR_CODES` in `tools/brsr_indicators.py` |
 
 **The extractor must not see the answer key.** Score afterwards, separately. This is easy to violate accidentally when iterating.
 
@@ -65,12 +53,13 @@ So: **transcribe those figures by hand into a scoreable list, and do it before t
 
 ## Method
 
-0. **Build the answer key** by hand from the Principle 6 narratives, as above. Finish this before step 1.
-1. **Locate** the BRSR section within the annual report. It has standard headings ("Section C: Principle Wise Performance Disclosure", "PRINCIPLE 6"). Record whether this was reliable.
-2. **Split** into the 21 numbered indicators using the SEBI format as the map.
-3. **Extract** for each indicator: the narrative answer, and every figure with its unit and financial year.
-4. **Score** against the answer key.
+1. **Open `brsrapp2.html`** and drop in the report PDF. Steps 1 to 3 below are what it already does — record whether each worked rather than building them.
+2. Confirm it **located** the BRSR section and **split** it into the numbered indicators. Check the principle page ranges explicitly — they should be 20, 23, 25, 30, 31, 34, 38, 39, 41. If they are not, stop; the locator is still wrong and the score would be meaningless.
+3. Read off what it **extracted** per indicator: narrative, figures, units, years, page numbers, confidence.
+4. **Score** against the answer key. Do this outside the app, in a spreadsheet or a script.
 5. **Log every failure with its cause.** The failure log is more valuable than the score.
+
+Do not fix the extractor while measuring it. Get the baseline number first; a moving target cannot be scored.
 
 ## What to measure
 
@@ -79,8 +68,6 @@ For every figure in the answer key for these indicators: exact match / wrong val
 
 Exact means exact. `340602.16` and `340,602` are the same; `340602.16` and `340602` are not, because rounding a published figure is a line this product does not cross.
 
-Note that the source narrative uses **Indian digit grouping** (`4,94,545.39`) while the structured metrics use international grouping. Normalise before comparing, or every figure will score as wrong.
-
 **Indicator alignment.** Was content attributed to the right indicator number? Content landing under P6-E3 that belongs under P6-L2 is a different failure from getting a number wrong, and needs a different fix.
 
 **Narrative usability.** Three-point human judgement per indicator: usable as-is / usable after editing / not usable.
@@ -88,8 +75,6 @@ Note that the source narrative uses **Indian digit grouping** (`4,94,545.39`) wh
 **Cost and time per report.** Record it. At ₹25,000–30,000 per company per year, the unit economics need to be known before anything is promised.
 
 **Disagreements are not automatically failures.** Where the extractor and the answer key differ, check the PDF. The key is one analyst's reading and can itself be wrong. A disagreement resolved in the extractor's favour is a finding worth recording.
-
-> **A worked example, already in the data.** The Principle 6 energy row reads *"Total energy consumed from renewable source: FY2026: 9.47 Joules"*. Nobody's renewable consumption is nine joules. SEBI's form says "in Joules or multiples", and the multiple was dropped in transcription. An extractor reading the PDF correctly would *disagree with the key here and be right*. Expect several of these, and review disagreements by hand rather than trusting the score.
 
 ---
 
@@ -102,8 +87,6 @@ Note that the source narrative uses **Indian digit grouping** (`4,94,545.39`) wh
 | **Below 70%** | The approach needs rethinking. Consider asking companies to submit the BRSR as structured data (many prepare it in a spreadsheet before it reaches the PDF), or narrow the product to the BRSR Core attributes only. |
 
 Whatever the number, **it decides the review model**, which is currently an open question and should stay open until this runs.
-
-Note that this measures something narrower and harder than the PRD's Phase 3 threshold of "70% of extracted rows requiring no human correction". This spike scores *individual figures* on the most table-heavy section. The two numbers are not interchangeable; report which one is being quoted.
 
 ## Kill criteria
 
@@ -119,7 +102,7 @@ Stopping early with a clear reason is the second-best outcome. The worst is two 
 
 ## One scoping fact worth knowing now
 
-The 663-row profile is **not** all BRSR. Only **149 rows** come from the BRSR section — 22% of the profile. The other 514 — board biographies, awards, ratings, memberships, policies, materiality, corporate information — are drawn from elsewhere in the annual report, the company website and third-party sources.
+The 663-row profile is **not** all BRSR. Only **149 rows** come from the BRSR section. The other 514 — board biographies, awards, ratings, memberships, policies, materiality, corporate information — are drawn from elsewhere in the annual report, the company website and third-party sources.
 
 So even a perfect BRSR extractor generates roughly **a fifth of a full profile**. The rest needs other sources or manual entry.
 
@@ -133,4 +116,4 @@ One page:
 - The failure log, with a cause against each failure
 - A recommendation: proceed, proceed with a narrower scope, or stop
 
-No prototype, no interface, no server. If the spike produces a demo, it has gone wrong.
+No new code. If the spike turns into a session of improving the extractor, it has gone wrong — fix things afterwards, against a baseline you can compare to.
