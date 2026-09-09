@@ -737,6 +737,17 @@ function stripUnit(text) {
 // SEBI's column headings run to a full sentence. The trailing key —
 // (A), (B), (B/A) — is what tells two columns apart, so it is kept and
 // the prose is cut at a word boundary rather than mid-word.
+// Cut at a word, not mid-letter. A hard character limit printed titles
+// like "...action taken by regulato" on the finished profile.
+function clip(text, n) {
+  var t = String(text || "").replace(/\s+/g, " ").trim();
+  if (t.length <= n) return t;
+  var cut = t.slice(0, n);
+  var sp = cut.lastIndexOf(" ");
+  if (sp > n * 0.6) cut = cut.slice(0, sp);
+  return cut.replace(/[\s,;:.\/-]+$/, "") + "\u2026";
+}
+
 function shortHeader(text) {
   var flat = String(text || "").replace(/\s+/g, " ").trim();
   // SEBI labels this year's columns (A)(B) and last year's (C)(D). They
@@ -1435,7 +1446,7 @@ function buildRows(state) {
       rows.push({
         theme: griTheme(ind.series),
         category: "GRI " + ind.series,
-        subfactor: (ind.question || ind.code).slice(0, 120),
+        subfactor: clip(ind.question || ind.code, 120),
         keywords: ["GRI", "GRI " + ind.series],
         documents: [{label: state.filename + " (Page " + ind.page + ")", url: null}],
         metrics: metrics,
@@ -1468,7 +1479,7 @@ function buildRows(state) {
     rows.push({
       theme: "BRSR Disclosures",
       category: "BRSR Section C: Principle " + ind.principle,
-      subfactor: ind.question.slice(0, 120),
+      subfactor: clip(ind.question, 120),
       // Structural facts from the form only. Guessing keywords from the
       // wording is what produced 445 wrong framework tags once already.
       keywords: ["BRSR", "Principle " + ind.principle, ind.block],
