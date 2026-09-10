@@ -339,6 +339,10 @@ function parseNumber(text) {
 
 /* --- locate ---------------------------------------------------------- */
 var RE_SECTION_C = /SECTION\s+C\b/i;
+var RE_SECTION_A = /^\s*SECTION\s+A\b/i;
+var RE_SECTION_B = /^\s*SECTION\s+B\b/i;
+// Any section heading, so a question title cannot run on into one.
+var RE_SECTION = /^\s*SECTION\s+[ABC]\b/i;
 var RE_PRINCIPLE = /^\s*PRINCIPLE\s*[-–]?\s*(\d)\b/i;
 var RE_ESSENTIAL = /^\s*Essential\s+Indicators?\s*$/i;
 var RE_LEADERSHIP = /^\s*Leadership\s+Indicators?\s*$/i;
@@ -499,6 +503,21 @@ function sectionCStart(pages) {
   return {page: firstPrinciple1Page(pages), named: named, fallback: true};
 }
 
+// Sections A and B are found by working backwards from Section C, which is
+// the heading already trusted. B is the last "Section B" heading before C,
+// A the last before B. Anchoring to C rather than searching independently
+// means a contents page listing all three cannot pull any of them forward.
+function headingBefore(pages, re, limitPage) {
+  var found = null;
+  for (var p = 1; p < limitPage; p++) {
+    var lines = (pages[p - 1] || {}).lines || [];
+    for (var i = 0; i < lines.length; i++) {
+      if (re.test(lines[i].text)) found = {page: p, y: lines[i].y};
+    }
+  }
+  return found;
+}
+
 function locate(pages, onLog) {
   var start = sectionCStart(pages);
   var sectionC = start.page, seen = {}, ordered = [];
@@ -532,8 +551,22 @@ function locate(pages, onLog) {
     var end = nxt ? nxt.page : brsrEnd(pages, o.page);
     ranges[o.p] = [o.page, Math.max(o.page, end), o.y, nxt ? nxt.y : null];
   });
+  // The two sections before the principles: the company's own particulars,
+  // and how it governs the nine principles. They were read past and thrown
+  // away — a quarter of the BRSR's disclosures.
+  var sections = {};
+  if (sectionC !== null) {
+    var cY = null;
+    ((pages[sectionC - 1] || {}).lines || []).forEach(function (l) {
+      if (cY === null && RE_SECTION_C.test(l.text)) cY = l.y;
+    });
+    var b = headingBefore(pages, RE_SECTION_B, sectionC);
+    var a = headingBefore(pages, RE_SECTION_A, b ? b.page + 1 : sectionC);
+    if (a) sections.A = [a.page, b ? b.page : sectionC, a.y, b ? b.y : cY];
+    if (b) sections.B = [b.page, sectionC, b.y, cY];
+  }
   return {sectionC: sectionC, sectionCNamed: start.named,
-          sectionCFallback: start.fallback, ranges: ranges};
+          sectionCFallback: start.fallback, ranges: ranges, sections: sections};
 }
 
 /* --- split ----------------------------------------------------------- */
@@ -543,7 +576,16 @@ function locate(pages, onLog) {
 // startY is the principle's own heading and endY the next one's, so a page
 // shared by two principles is divided where the headings actually sit
 // rather than being claimed whole by both.
-function splitPrinciple(pages, principle, start, end, startY, endY) {
+// Collects the form's numbered questions in a page range. Shared by all
+// three sections, because they are numbered the same way and differ only
+// in what resets the count.
+//
+// Section C restarts its numbering under each "Essential Indicators" and
+// "Leadership Indicators" heading, so the block is tracked and nothing is
+// taken before the first heading. Sections A and B have no such headings;
+// their ordering rule is applied by splitSection once table rows and text
+// lines have been merged into document order.
+function collectMarks(pages, start, end, startY, endY, useBlocks) {
   var marks = [], block = null;
   for (var p = start; p <= end; p++) {
     var pg = pages[p - 1] || {};
@@ -558,40 +600,43 @@ function splitPrinciple(pages, principle, start, end, startY, endY) {
     for (var i = 0; i < lines.length; i++) {
       if (lines[i].y > hi || lines[i].y <= lo) continue;
       var t = lines[i].text;
-      if (RE_ESSENTIAL.test(t)) { block = "E"; continue; }
-      if (RE_LEADERSHIP.test(t)) { block = "L"; continue; }
+      if (useBlocks && RE_ESSENTIAL.test(t)) { block = "E"; continue; }
+      if (useBlocks && RE_LEADERSHIP.test(t)) { block = "L"; continue; }
       var m = questionOn(lines[i], cols);
-      if (m && block) {
-        // A BRSR question runs over two or three lines and ends with "?"
-        // or ":". Taking only the first line left the title cut mid-word
-        // and pushed the rest into the answer.
-        var stub = m[2].trim(), stubY = lines[i].y, qTop = lines[i].y, k = i;
-        while (!/[?:]$/.test(stub) && k + 1 < lines.length && k - i < 3) {
-          var nxtText = lines[k + 1].text;
-          // Never absorb a table row: the question ends where the
-          // answer's table begins.
-          // A line that already reports a figure is the answer, not more
-          // of the question.
-          if (inTable(lines[k + 1].y) || /FY\s*\d{4}\s*[:\-]/i.test(nxtText) ||
-              RE_QUESTION.test(nxtText) || RE_ESSENTIAL.test(nxtText) ||
-              RE_LEADERSHIP.test(nxtText) || RE_PRINCIPLE.test(nxtText) ||
-              /^\s*[\d,.]+\s*$/.test(nxtText)) break;
-          k++;
-          stub += " " + nxtText.trim();
-          stubY = lines[k].y;
-        }
-        marks.push({n: parseInt(m[1], 10), block: block, page: p,
-                    y: stubY, top: qTop,
-                    stub: stub.replace(/\s+/g, " ").trim()});
+      if (!m) continue;
+      if (useBlocks && !block) continue;
+      // A BRSR question runs over two or three lines and ends with "?"
+      // or ":". Taking only the first line left the title cut mid-word
+      // and pushed the rest into the answer.
+      var stub = m[2].trim(), stubY = lines[i].y, qTop = lines[i].y, k = i;
+      while (!/[?:]$/.test(stub) && k + 1 < lines.length && k - i < 3) {
+        var nxtText = lines[k + 1].text;
+        // Never absorb a table row: the question ends where the answer's
+        // table begins. A line that already reports a figure is the
+        // answer, not more of the question.
+        if (inTable(lines[k + 1].y) || /FY\s*\d{4}\s*[:\-]/i.test(nxtText) ||
+            RE_QUESTION.test(nxtText) || RE_ESSENTIAL.test(nxtText) ||
+            RE_LEADERSHIP.test(nxtText) || RE_PRINCIPLE.test(nxtText) ||
+            RE_SECTION.test(nxtText) ||
+            /^\s*[\d,.]+\s*$/.test(nxtText)) break;
+        k++;
+        stub += " " + nxtText.trim();
+        stubY = lines[k].y;
       }
+      marks.push({n: parseInt(m[1], 10), block: block, page: p,
+                  y: stubY, top: qTop,
+                  stub: stub.replace(/\s+/g, " ").trim()});
     }
   }
+  return marks;
+}
+
+// An indicator owns everything from the end of its own question to the
+// start of the next one.
+function marksToIndicators(marks, end, endY, decorate) {
   return marks.map(function (mk, i) {
     var nxt = marks[i + 1];
-    return {
-      code: "P" + principle + "-" + mk.block + mk.n,
-      principle: principle,
-      block: mk.block === "E" ? "Essential" : "Leadership",
+    var ind = {
       question: mk.stub,
       page: mk.page,
       from: {page: mk.page, y: mk.y},
@@ -602,6 +647,91 @@ function splitPrinciple(pages, principle, start, end, startY, endY) {
       to: nxt ? {page: nxt.page, y: nxt.top}
               : {page: end, y: (endY == null ? -1e9 : endY)}
     };
+    decorate(ind, mk);
+    return ind;
+  });
+}
+
+// startY is the principle's own heading and endY the next one's, so a page
+// shared by two principles is divided where the headings actually sit
+// rather than being claimed whole by both.
+function splitPrinciple(pages, principle, start, end, startY, endY) {
+  var marks = collectMarks(pages, start, end, startY, endY, true);
+  return marksToIndicators(marks, end, endY, function (ind, mk) {
+    ind.code = "P" + principle + "-" + mk.block + mk.n;
+    ind.principle = principle;
+    ind.block = mk.block === "E" ? "Essential" : "Leadership";
+  });
+}
+
+// Half of Section A is not written as numbered paragraphs at all: the
+// company's particulars — CIN, registered office, paid-up capital — are
+// rows of a table, numbered down its first column. Reading only the
+// paragraphs made the section start at question 16.
+//
+// A row counts when its first cell is nothing but a number, and it has a
+// label and a value beside it. Tables headed "S. No" are an answer's own
+// tabulation, not the form's numbering, and are left alone; the rest
+// restart at 1 partway through the section, which the ordering rule in
+// splitSection then discards.
+function tableRowMarks(pages, start, end, startY, endY) {
+  var out = [];
+  for (var p = start; p <= end; p++) {
+    var pg = pages[p - 1] || {};
+    var hi = (p === start && startY != null) ? startY : 1e9;
+    var lo = (p === end && endY != null) ? endY : -1e9;
+    (pg.tables || []).forEach(function (t) {
+      if (t.top > hi || t.top <= lo) return;
+      var head = (((t.rows[0] || {}).cells) || [])
+        .map(function (c) { return c.text || ""; }).join(" ");
+      if (/^\s*S\.?\s*No\b/i.test(head)) return;
+      t.rows.forEach(function (r) {
+        var cells = r.cells.filter(function (c) { return (c.text || "").trim(); });
+        if (cells.length < 3) return;
+        var m = /^\s*(\d{1,2})\s*[.)]?\s*$/.exec((cells[0].text || "").trim());
+        if (!m) return;
+        var label = (cells[1].text || "").trim();
+        if (label.length < 6) return;
+        var value = cells.slice(2).map(function (c) { return (c.text || "").trim(); })
+          .filter(Boolean).join(" \u2014 ");
+        out.push({n: parseInt(m[1], 10), page: p, y: r.top, top: r.top,
+                  stub: label, value: value, fromTable: true});
+      });
+    });
+  }
+  return out;
+}
+
+// Sections A and B: the company's own particulars, and how it governs the
+// nine principles. Same numbered form, no Essential/Leadership split, and
+// the codes are the ones the GRI-SEBI linkage document already keys its
+// mappings by — "A2", "B1" — so those tags stay sourced, not guessed.
+function splitSection(pages, letter, start, end, startY, endY) {
+  var marks = collectMarks(pages, start, end, startY, endY, false)
+    .concat(tableRowMarks(pages, start, end, startY, endY));
+
+  // Document order, then the numbering must advance. A number that does
+  // not advance is a list inside somebody's answer, or an answer table
+  // counting its own rows from one.
+  marks.sort(function (a, b) { return a.page - b.page || b.top - a.top; });
+  var high = 0, kept = [];
+  marks.forEach(function (mk) {
+    if (mk.n <= high) return;
+    high = mk.n;
+    kept.push(mk);
+  });
+
+  return marksToIndicators(kept, end, endY, function (ind, mk) {
+    ind.code = letter + mk.n;
+    ind.section = letter;
+    ind.block = letter === "A" ? "General" : "Management and process";
+    if (mk.fromTable) {
+      // Its answer is the cell beside it; there is no page range to read.
+      ind.narrative = mk.value;
+      ind.figures = [];
+      ind.status = "pending";
+      ind.fromTable = true;
+    }
   });
 }
 
@@ -1337,6 +1467,26 @@ function stripRunningHeads(pages) {
   });
 }
 
+// Narrative, tables and figures for one indicator. The same work whichever
+// section it came from.
+function fillIn(pages, ind) {
+  var content = contentFor(pages, ind);
+  var figs = [], carry = null, tableProse = [];
+  content.tables.forEach(function (t) {
+    var got = figuresFromTable(t.rows, t.page, carry);
+    if (got.header) carry = got.header;
+    if (got.prose) tableProse.push(got.prose);
+    figs = figs.concat(got);
+  });
+  // Prose figures only where no table gave any, so a tabulated number is
+  // never restated as a vaguer duplicate.
+  if (!figs.length) figs = figuresFromText(content.narrative, ind.page);
+  ind.narrative = [content.narrative, tableProse.join(" ")]
+    .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  ind.figures = dedupe(figs);
+  ind.status = "pending";
+}
+
 function extractBrsr(pages, onLog) {
   stripRunningHeads(pages);
   var loc = locate(pages, onLog);
@@ -1345,28 +1495,28 @@ function extractBrsr(pages, onLog) {
   if (!Object.keys(loc.ranges).length) problems.push("No 'PRINCIPLE n' headings found.");
 
   var indicators = [];
+
+  // Document order: the company's particulars, how it governs the nine
+  // principles, then the principles themselves.
+  ["A", "B"].forEach(function (letter) {
+    var r = loc.sections[letter];
+    if (!r) return;
+    var found = splitSection(pages, letter, r[0], r[1], r[2], r[3]);
+    found.forEach(function (ind) {
+      if (!ind.fromTable) fillIn(pages, ind);
+      indicators.push(ind);
+    });
+    if (onLog) {
+      onLog("Section " + letter + ": pages " + r[0] + "\u2013" + r[1] +
+            ", " + found.length + " disclosures");
+    }
+  });
+
   Object.keys(loc.ranges).map(Number).sort(function (a, b) { return a - b; })
     .forEach(function (p) {
       var r = loc.ranges[p];
       var found = splitPrinciple(pages, p, r[0], r[1], r[2], r[3]);
-      found.forEach(function (ind) {
-        var content = contentFor(pages, ind);
-        var figs = [], carry = null, tableProse = [];
-        content.tables.forEach(function (t) {
-          var got = figuresFromTable(t.rows, t.page, carry);
-          if (got.header) carry = got.header;
-          if (got.prose) tableProse.push(got.prose);
-          figs = figs.concat(got);
-        });
-        // Prose figures only where no table gave any, so a tabulated
-        // number is never restated as a vaguer duplicate.
-        if (!figs.length) figs = figuresFromText(content.narrative, ind.page);
-        ind.narrative = [content.narrative, tableProse.join(" ")]
-          .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-        ind.figures = dedupe(figs);
-        ind.status = "pending";
-        indicators.push(ind);
-      });
+      found.forEach(function (ind) { fillIn(pages, ind); indicators.push(ind); });
       if (onLog) {
         onLog("Principle " + p + ": pages " + r[0] + "\u2013" + r[1] +
               ", " + found.length + " indicators");
@@ -1531,7 +1681,9 @@ function buildRows(state) {
     }
     frameworks = [{
       name: "BRSR",
-      detail: ind.code + " · Principle " + ind.principle + " · " + ind.block,
+      detail: ind.section
+        ? ind.code + " · Section " + ind.section
+        : ind.code + " · Principle " + ind.principle + " · " + ind.block,
       indicator: ind.code, verified: true, source: SEBI_SOURCE
     }];
     var exact = GRI_BY_INDICATOR[ind.code];
@@ -1550,11 +1702,17 @@ function buildRows(state) {
     }
     rows.push({
       theme: "BRSR Disclosures",
-      category: "BRSR Section C: Principle " + ind.principle,
+      category: ind.section
+        ? (ind.section === "A"
+             ? "BRSR Section A: General Disclosures"
+             : "BRSR Section B: Management and Process Disclosures")
+        : "BRSR Section C: Principle " + ind.principle,
       subfactor: clip(ind.question, 120),
       // Structural facts from the form only. Guessing keywords from the
       // wording is what produced 445 wrong framework tags once already.
-      keywords: ["BRSR", "Principle " + ind.principle, ind.block],
+      keywords: ind.section
+        ? ["BRSR", "Section " + ind.section]
+        : ["BRSR", "Principle " + ind.principle, ind.block],
       documents: [{label: state.filename + " (Page " + ind.page + ")", url: null}],
       metrics: metrics,
       frameworks: frameworks,
@@ -1977,10 +2135,13 @@ $("generate").addEventListener("click", function () {
   var figs = rows.reduce(function (a, r) { return a + r.metrics.length; }, 0);
   $("done-sub").textContent = rows.length + " disclosures, " + figs +
     " figures, from " + STATE.filename + ".";
-  $("done-note").innerHTML = "<strong>This is the BRSR section only</strong> — " +
-    "roughly a fifth of a full ESG profile. Board biographies, awards, ratings, " +
-    "memberships and corporate information are not in the BRSR and are not " +
-    "included here.";
+  $("done-note").innerHTML = "<strong>This is the BRSR only</strong> — but all " +
+    "three of its sections: the company's general disclosures, its management " +
+    "and process disclosures, and the nine principles. Awards, ratings, " +
+    "memberships, board biographies and materiality assessments are not in the " +
+    "BRSR and are not included. <strong>Section A carries the company's own " +
+    "particulars</strong> — CIN, registered address, contact details — so read " +
+    "it before sharing a profile outside the company.";
   $("preview").srcdoc = STATE.pageHtml;
   show("step-done");
 });
