@@ -47,7 +47,10 @@ a client and it will work the same way on their machine.
 
 How it goes:
 
-1. **Drop the PDF in.** It finds the BRSR section inside the annual report,
+1. **Drop the PDF in.** It finds the BRSR inside the annual report — all
+   three of its sections: the company's general disclosures (Section A), its
+   management and process disclosures (Section B), and the nine principles
+   (Section C) —
    and reads each table from its printed gridlines — so a year heading that
    spans three columns, and rows whose label is merged from the row above,
    both come out right.

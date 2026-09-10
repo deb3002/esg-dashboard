@@ -8,7 +8,45 @@ Every change to this project, newest first, in plain language.
 
 ---
 
-## 9 Sep 2026 (latest) — annual reports read correctly; the review gate made real
+## 10 Sep 2026 — the whole BRSR, not just the principles
+
+**The app was reading a quarter of the form and skipping the rest.** It found
+Section C and read past everything before it, so a generated profile carried
+the nine principles and nothing else. The source export this project is built
+on has 149 BRSR rows: 26 from Section A, 12 from Section B, 111 across the
+principles.
+
+Sections A and B are numbered the same way as the principles, so they now
+share the same collector, differing only in having no Essential/Leadership
+headings to restart the count. Their pages are found by working backwards
+from Section C, the heading already trusted, so a contents page listing all
+three cannot pull any of them forward.
+
+**Half of Section A is not written as numbered paragraphs at all.** The
+company's particulars — CIN, registered office, paid-up capital, assurance
+provider — are rows of a table, numbered down its first column. Reading only
+paragraphs started the section at question 16. A numbered row with a label
+and a value beside it now counts as a disclosure. Tables headed "S. No" are
+an answer's own tabulation and are left alone; anything else that restarts
+its numbering is discarded by requiring the count to advance.
+
+No new mapping work was needed: the GRI-SEBI linkage document already keys 18
+Section A and 9 Section B mappings by exactly these codes, so the tags stay
+sourced.
+
+On the annual report: 108 disclosures becomes 145, figures 216 becomes 243,
+trend series 89 becomes 98. Section A comes out complete, 26 of 26.
+
+**Section B is partial and will stay that way for now** — 11 of 12 on one
+report, 6 of 12 on the other. Its policy grid is the gap, for two different
+reasons: one filing prints the question as a bare "1." with its wording
+inside the grid, and the other prints the entire grid sideways. Rotated text
+is deliberately ignored, because reading it inline is what put "Corporate
+Overview" in the middle of sentences.
+
+---
+
+## 9 Sep 2026 — annual reports read correctly; the review gate made real
 
 **Where the app lives changed.** It is in the repository as `brsr-app.html`,
 generated from `app-src/brsr-app.template.html` by `tools/build_app.py`. The
