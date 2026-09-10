@@ -1,30 +1,37 @@
 # Product Spec — ESG Disclosure Profile Viewer (Tier 1 MVP)
 
-**Revision 13 — 9 Sep 2026.** Current. Phase 1 is built, demonstrated and unchanged. The BRSR extraction app is in the repository as **`brsr-app.html`**, generated from `app-src/brsr-app.template.html`. The four changes in `brsrapp-fix-spec.md` have landed, and the accuracy measurement is no longer blocked — see **Phase 3 status** below. The loose copies `brsrapp.html` and `brsrapp2.html` were deleted on 9 Sep 2026; `brsrapp3.html`, if kept, matches the current build exactly.
+**Revision 14 — 10 Sep 2026.** Current. Phase 1 is built, demonstrated and unchanged, and this spec describes it. **The BRSR extraction app has moved to its own repository** — [`brsrapp`](https://github.com/deb3002/brsrapp), private — and no longer lives here. See **Phase 3 status** below for what that changes about this spec, which is almost nothing.
 
 **Full change history, with the reasoning behind each decision, is in `CHANGELOG.md`.** It was moved out of this file: eleven stacked revision notes had grown longer than some of the sections they described.
 
-## Phase 3 status — the extraction app exists
+## Phase 3 status — the extraction app has its own repository
 
-`brsr-app.html` reads a BRSR or sustainability report PDF and generates a profile from it, entirely in the browser. It is **not** part of the Tier 1 build and does not change anything in this spec; the viewer it produces is the same one specified here.
+`brsrapp` — <https://github.com/deb3002/brsrapp> — reads a BRSR or a GRI
+sustainability report PDF and generates a profile from it, entirely in the
+browser. It is **not** part of the Tier 1 build and changes nothing in this
+spec: the viewer it produces is the one specified here.
 
 What it establishes, and what it does not:
 
-- **Established:** extraction needs no AI model, no network and no per-report cost. It is regex plus geometric layout parsing, so failures are deterministic and traceable to a pattern rather than probabilistic.
-- **Established:** the review gate works as a product. Every indicator must be approved or excluded before a profile can be generated — enforced in code, not by convention.
-- **Not established: accuracy.** Nobody has run it against a report with known-correct answers. Until that number exists, the review model — whether a client can check their own profile or whether Debraj must — stays open.
-- **A defect recorded here previously was not real.** This spec said the app mis-located two of the nine principles on the bundled test PDF. It does not: that PDF holds exactly nine lines able to anchor a principle, on the nine correct pages, and both the current app and the older copies already produced those ranges. The weakness behind the claim was genuine — the Section C page was found and then ignored, so the first "Principle *n*" line anywhere won — and it is now fixed, which matters for annual reports where the GRI index and contents pages name principles too. **The accuracy measurement is no longer blocked by anything.**
-- **All three BRSR sections are read**, not only the principles. Section A —
-  the company's particulars, half of which the form prints as rows of a table
-  rather than numbered paragraphs — comes out complete on the annual report
-  tested: 26 of 26, the same count this spec records for the source export.
-  Section B is partial (11 of 12 on one report, 6 of 12 on the other): its
-  policy grid is printed sideways in some filings, and the app ignores
-  rotated text because reading it inline splices page furniture into
-  sentences.
-- **All four changes in `brsrapp-fix-spec.md` have landed:** the principle search is fenced to Section C; bulk approval can only take indicators whose every figure was read with high confidence, so the review gate still means something; review state survives a closed tab; and an audit trail of every figure, with its page, confidence and status, can be downloaded.
+- **Established:** extraction needs no AI model, no network and no per-report
+  cost. It is regex plus geometric layout parsing, so failures are
+  deterministic and traceable to a pattern rather than probabilistic.
+- **Established:** the review gate works as a product. Every disclosure must
+  be approved or excluded before a profile can be generated, and the
+  bulk-approve button can only take ones whose every figure was read with
+  high confidence.
+- **Established:** it reads all three BRSR sections. On a 513-page integrated
+  annual report: 145 disclosures, 243 figures, 98 trend series, in under four
+  seconds. Section A comes out complete at 26 of 26 — the same count this
+  spec records for the source export.
+- **Not established: accuracy.** Nobody has run it against a report with
+  known-correct answers. Until that number exists, the review model — whether
+  a client can check their own profile or whether Debraj must — stays open.
+  Nothing blocks the measurement.
 
-See `brsrapp-fix-spec.md` for the changes, `phase3-spike-brief.md` for the measurement that follows, and `phase3-architecture.md` for the wider design.
+Four files are shared between the two repositories and cannot be
+deduplicated: `index.html`, `styles.css`, `app.js` and
+`tools/brsr_indicators.py`. Changing one here means changing it there.
 
 ## How to verify a change
 

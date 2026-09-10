@@ -52,21 +52,10 @@ tools/brsr_indicators.py            BRSR/GRI/IFC mapping tables + their sources
 tools/test.js                       the 107 checks
 ESGReport.xls                       source export (gitignored — see Ground rules)
 
-app-src/brsr-app.template.html      Phase 3 app — THE SOURCE. Edit this one.
-brsr-app.html                       GENERATED from it. Never hand-edit.
-tools/build_app.py                  template -> brsr-app.html
-tools/test-extract.js               extraction rules, in Node. No browser, no PDF.
-tools/test_app.js                   drives the app in a browser against a fixture
-brsrapp-fix-spec.md                 four specified changes — all four are done
+tools/extract_brsr.py               stale CLI extractor — see below
+tools/make_test_brsr.py             builds the fixture PDF that CLI's test uses
+tools/test_extract.py               that CLI's checks
 ```
-
-**Do not work from a loose copy of the built app.** `brsrapp.html` and
-`brsrapp2.html` were deleted on 9 Sep 2026 — they opened perfectly well and
-silently lacked the fixes, which is the worst way for a file to be wrong.
-`brsrapp3.html` may still be in Downloads; it matches `brsr-app.html`
-exactly, so prefer the repository's copy, which is the only one that gets
-rebuilt when the source changes. Anything edited in a built copy is
-discarded the next time `build_app.py` runs.
 
 **Read `CHANGELOG.md` before changing anything.** It records why decisions were made, including several that look odd until you know what went wrong with the obvious approach.
 
@@ -81,27 +70,32 @@ Phase 1 is **built and running**: converter, page, theme/keyword/framework filte
 
 **One thing is deliberately unbuilt: the E/S/G filter.** Debraj must sign off the classification mapping first, because a client may ask him to defend any row's classification. Rule-based classification reaches about 84%; 105 rows are genuinely none of the three. Details in `product-spec.md`.
 
-## `brsr-app.html` — the Phase 3 app
+## The extraction app now lives in its own repository
 
-A single self-contained file that reads a report PDF and generates a profile. **It is not part of the Tier 1 build** — do not wire it into `index.html`, and do not let its dependencies near the shipped page. PDF.js is embedded in it as base64 precisely so it stays self-contained.
+`brsrapp` — <https://github.com/deb3002/brsrapp>, private — is the app that
+reads a company's report PDF and generates a profile from it. It was built
+here and moved out on 10 Sep 2026. Everything about it, including why rotated
+text is ignored and why an emissions intensity was once read as a negative
+number, is in that repository's `CLAUDE.md` and `CHANGELOG.md`.
 
-Three properties that must survive any change to it:
+**Four files live in both repositories** and cannot be deduplicated across
+them:
 
-- **The review gate.** Generate stays disabled until every indicator is approved or excluded. Never publish unreviewed output.
-- **No rounding of figures.** `Math.round` appears only in layout geometry. Keep it that way.
-- **No network, no AI model, no credentials.** Extraction is regex and geometry. That is what makes it free to run and safe to hand to a client.
+- `index.html`, `styles.css`, `app.js` — the profile that app generates *is*
+  this viewer; its build inlines this page's code.
+- `tools/brsr_indicators.py` — both projects tag disclosures from the same
+  sourced mapping tables.
 
-**Work on `app-src/brsr-app.template.html`, then run `python3 tools/build_app.py`.** `brsr-app.html` is the 2 MB file that comes out — it is what gets double-clicked and what gets sent to Debraj, but editing it directly loses the work at the next build. The build is reproducible: rebuilding without changing the template leaves the file byte-identical.
+**If you change any of those four here, say plainly that `brsrapp` needs the
+same change.** That repository has `tools/compare_with_dashboard.sh`, which
+reports when they have drifted.
 
-**A correction, 9 Sep 2026.** This file previously recorded a verified defect: a *"Principle 9 of the NGRBCs"* line on page 17 of the bundled BRSR anchoring P9 to Section B, so that two of nine principles produced wrong output. **That does not reproduce.** The bundled PDF contains exactly nine lines that can anchor a principle, on pages 20, 23, 25, 30, 31, 34, 38, 39 and 41 — the correct ones — and both the current app and the older copy already produced those ranges. Nothing on page 17, or anywhere before Section C, matches. If you are told this defect exists, check it before acting on it.
-
-The **weakness behind it was real**, and is now fixed. `locate()` did ignore the Section C page it had found, and took the first "Principle *n*" line anywhere. On the 513-page annual report the GRI index carries lines like *"Principle 6 – 3"* on page 499, and "Section C" is named on seven separate pages; the right ones won only because they happened to come first. The principle search is now fenced to Section C, choosing the last page where a Principle 1 heading and an "Essential Indicators" heading follow within a few pages, and falling back to the first Principle 1 heading — saying so in the log — when there is no Section C at all.
-
-All four changes in `brsrapp-fix-spec.md` are done: the fence above, a bulk-approve button that can only take indicators whose every figure was read with high confidence (25 of 108 on the annual report — the rest have no figures and must each be decided), review state saved under a fingerprint of the PDF so a closed tab no longer costs an hour, and a downloadable audit trail of every figure with its page, confidence and status.
-
-Remaining gap: review still runs in document order rather than confidence order.
-
-**Its accuracy has still never been measured** — no report with known-correct answers has been scored against it. That is `phase3-spike-brief.md`, and nothing now blocks it: the earlier instruction to hold off until the locator was fixed rested on the defect above, which was not real.
+**`tools/extract_brsr.py` stayed here** because it imports `tools/convert.py`
+and writes `data/disclosures.js`. It is stale — never updated when the table
+reading was rewritten, it finds 6 figures where `brsrapp` finds 204 on the
+same file. **Do not use it to judge what extraction can do**, and do not
+treat its passing tests as evidence about the app. Whether to delete it is
+Debraj's call; it has been raised and not yet decided.
 
 ## Three things that must not be undone
 

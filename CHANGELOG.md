@@ -8,6 +8,31 @@ Every change to this project, newest first, in plain language.
 
 ---
 
+## 10 Sep 2026 (later) — the extraction app moved to its own repository
+
+`brsrapp` — <https://github.com/deb3002/brsrapp>, private — is now the home of
+the app that reads a report PDF and generates a profile. This repository goes
+back to being the Tier 1 viewer, its spreadsheet converter and its 107 checks.
+They had grown into two products sharing a folder.
+
+**Four files still live in both**, and cannot be shared across two
+repositories: `index.html`, `styles.css` and `app.js`, because the profile
+that app generates *is* this viewer and its build inlines this page's code;
+and `tools/brsr_indicators.py`, because both tag disclosures from the same
+sourced mapping tables. Change one here and `brsrapp` needs the same change —
+it carries a script that reports when they have drifted.
+
+**`tools/extract_brsr.py` stayed here**, with `tools/make_test_brsr.py` and
+`tools/test_extract.py`. It imports the converter and writes this project's
+data file, so it belongs on this side. It remains stale — 6 figures where the
+app finds 204 on the same file — and is not evidence about what extraction
+can do. Whether to delete it is still undecided.
+
+Nothing in the Tier 1 viewer changed. The 107 checks pass, and so do the
+stale extractor's own.
+
+---
+
 ## 10 Sep 2026 — the whole BRSR, not just the principles
 
 **The app was reading a quarter of the form and skipping the rest.** It found

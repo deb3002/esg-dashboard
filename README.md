@@ -30,124 +30,18 @@ The first loads the real page code and the real data and checks the filters, the
 
 Long narrative text is shortened to about four lines with a **Show more** link. Rows with reported figures show them above the text.
 
-## The report-to-profile app
+## The report-to-profile app has moved
 
-**`brsr-app.html`** — double-click it. Drop in a **BRSR or a GRI
-sustainability report** PDF, check what it read, and it gives you the
-profile page.
+The app that reads a company's report PDF and generates one of these profiles
+now has its own repository: **[`brsrapp`](https://github.com/deb3002/brsrapp)**
+(private). It was built here and split out on 10 Sep 2026.
 
-It works out which kind of report you gave it. A BRSR is recognised by its
-Section C and Principle headings; a GRI report by its content index. You
-don't have to say which.
-
-
-Nothing is uploaded anywhere. The report is read inside the page, on your
-own computer, with no internet connection needed. You can hand the file to
-a client and it will work the same way on their machine.
-
-How it goes:
-
-1. **Drop the PDF in.** It finds the BRSR inside the annual report — all
-   three of its sections: the company's general disclosures (Section A), its
-   management and process disclosures (Section B), and the nine principles
-   (Section C) —
-   and reads each table from its printed gridlines — so a year heading that
-   spans three columns, and rows whose label is merged from the row above,
-   both come out right.
-2. **Check what it read.** Every figure is listed with the page it came
-   from, so you can check it against the report. Type over anything wrong,
-   drop a figure, or exclude a whole indicator. Nothing is generated until
-   you have been through them.
-
-   There is a button to approve the indicators whose every figure was read
-   with high confidence — it says how many that is, and it will not touch
-   anything uncertain or anything with no figures. Those are the ones worth
-   a person's attention, so they stay for you. On a real annual report it
-   clears about a quarter of them.
-
-   **Your review is saved as you go**, under a fingerprint of the PDF
-   itself, so closing the tab does not cost you an hour. Reopen the same
-   report and it offers to pick up where you left off; a different report
-   never restores the wrong work. If the browser will not allow storage,
-   the app says so and still warns you before you leave with work
-   unchecked.
-3. **Press Generate.** You get a preview, plus three downloads: the
-   finished profile page as a single HTML file, the data file if you would
-   rather drop it into the existing viewer, and an **audit trail** — one
-   CSV row per figure with its page, what it was read from, its
-   confidence, whether it was approved, excluded or dropped, and what the
-   extractor first read if you corrected it. For an investor relations
-   team that file is often worth more than the profile: it is what turns
-   "our figures are traceable" into something you can hand over.
-
-### Reading a GRI report
-
-A BRSR is a form, so its questions are found by position. A GRI report has
-no fixed shape, so the **GRI content index** is used instead — the table
-every GRI report carries listing each disclosure and where to find it.
-
-The index has no gridlines, but it does have columns: the disclosure code,
-its title and the answer each sit at their own position on the page, often
-in two panels side by side. Those positions are what the app splits on. It
-does **not** carry a copy of GRI's own list of disclosure titles, which
-keeps the licensing question out of the software.
-
-Measured against one real GRI report (QTS, 2025, 37 pages): **62
-disclosures across 13 GRI series**, 42 carrying narrative text, grouped
-onto the existing themes — 35 Governance, 14 Environment, 13 Social.
-
-Expect a GRI profile to be **lighter on figures than a BRSR one**. Most
-GRI reports put their numbers in charts and tables in the body and use the
-index only to point at them, and a report written "with reference to" the
-GRI Standards rather than "in accordance with" carries fewer disclosures
-to begin with.
-
-### What you should not assume about it
-
-- **Its accuracy on real filings is only partly measured.** It has been run
-  against two real filings. A standalone filed BRSR (42 pages): all nine
-  principles found, 88 indicators, 204 figures with their years, units and
-  page numbers. A BRSR filed inside a 513-page integrated annual report
-  (Escorts Kubota, FY 2024-25): 108 indicators, 216 figures, 89 trend
-  series, in under four seconds. Tables checked against the printed page —
-  energy, water, waste, air emissions, Scope 1, 2 and 3 — came out as
-  published. That is two reports, not a measured accuracy rate;
-  `phase3-spike-brief.md` still describes the proper measurement.
-- **Some tables still yield nothing.** Tables whose layout it cannot read
-  are skipped rather than guessed at, so the risk is a missing figure, not
-  a wrong one.
-- **One measure can still hold two values for a year.** Where a table
-  repeats a row label under different sub-headings and the sub-heading is
-  not picked up, two different figures can end up under one name — six of
-  the annual report's 216 figures. The values and their pages are right;
-  the name does not tell them apart. The review step shows both.
-- **The Highlights text is uneven.** Where an answer is a table, the table
-  is written out as readable prose. Where the report lays a question and
-  its answer out inside a table, the text can still come through as
-  fragments. Figures are unaffected — this is about the narrative column.
-- **It reads digital text only.** A scanned report contains pictures of
-  words, and no text can be pulled from it at all. The app says so rather
-  than producing an empty profile.
-- **It covers the BRSR section only** — roughly a fifth of a full profile.
-  Board biographies, awards, ratings, memberships and corporate information
-  are not in the BRSR and are not extracted.
-- **The keyword filter will be thin.** Extracted profiles carry structural
-  tags only (`BRSR`, `Principle 6`, `Essential`), because guessing keywords
-  from wording is the mistake that produced 445 bad GRI tags once already.
-
-### Rebuilding it
-
-`brsr-app.html` is generated. To rebuild after changing the page or the
-mappings:
-
-```bash
-python3 tools/build_app.py     # writes brsr-app.html
-python3 tools/test_app.py      # drives it in a browser and checks the result
-```
-
-It bundles pdf.js, which is the only way to read a PDF in a browser. That
-library is embedded in this one file and never reaches the shipped viewer —
-`index.html` still has zero dependencies.
+Four files still live in both repositories, and cannot be shared across them:
+`index.html`, `styles.css` and `app.js`, because the profile that app
+generates *is* this viewer and its build inlines this page's code; and
+`tools/brsr_indicators.py`, because both tag disclosures from the same
+sourced mapping tables. **Change one of those four here and `brsrapp` needs
+the same change** — it has a script that reports when they have drifted.
 
 ## The command-line version
 
@@ -211,7 +105,7 @@ to begin with.
 - **Its accuracy on real filings is unmeasured.** It has been tested only
   against a report generated from data we already had — that proves the
   machinery works, not that it reads real reports well. Measuring it
-  properly is what `phase3-spike-brief.md` describes.
+  properly is described in the `brsrapp` repository.
 - **It covers the BRSR section only** — roughly a fifth of a full profile.
   Board biographies, awards, ratings, memberships and corporate information
   come from elsewhere and are not extracted.
@@ -397,12 +291,7 @@ The 28 categories in the spreadsheet (things like "Board of Directors" or "BRSR 
 | `ESGReport.xls` | The source export. Deliberately **not** in version control — it carries the real company name, CIN, contact details and director biographies. |
 | `product-spec.md` | What was built and why, with every decision recorded. |
 | `CHANGELOG.md` | Every change and the reasoning behind it. |
-| `brsr-app.html` | **Generated.** The report-to-profile app: drop in a PDF, get a profile. Built by `tools/build_app.py`. |
-| `app-src/brsr-app.template.html` | The source that app is built from. Edit this, never the built file. |
-| `vendor/` | pdf.js, embedded into the app at build time. It never reaches the shipped viewer. |
-| `tools/test-extract.js` | Checks on the extraction rules. Runs in Node, no browser and no PDF. |
-| `tools/test_app.js` | Drives the app in a browser against a fixture PDF. |
-| `brsrapp-fix-spec.md` | The four changes specified for the app, and how they were to be verified. |
+| `tools/extract_brsr.py` | A stale command-line extractor. Kept because it uses the converter and the data file; **not** a guide to what extraction can do — see `CLAUDE.md`. |
 | `push-to-github.command` | Double-click to commit and push. |
 
 ## What this build deliberately does not do
