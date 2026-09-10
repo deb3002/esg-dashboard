@@ -3,12 +3,29 @@ BRSR indicator codes, and the GRI disclosures each one links to.
 
 TWO SOURCES, kept separate on purpose:
 
-1. INDICATOR CODES — from SEBI's BRSR format, Annexure I to circular
-   SEBI/HO/CFD/CMD-2/P/CIR/2021/562 dated 10 May 2021.
-   https://www.sebi.gov.in/sebi_data/commondocs/may-2021/Business%20responsibility%20and%20sustainability%20reporting%20by%20listed%20entitiesAnnexure1_p.PDF
+1. INDICATOR CODES — from SEBI's BRSR format as revised for disclosures from
+   FY 2023-24 onwards (circular SEBI/HO/CFD/CFD-SEC-2/P/CIR/2023/122 dated
+   12 July 2023), consolidated at Annexure 16 of the LODR Master Circular,
+   last updated 30 January 2026.
 
    The ESG portal's row titles follow SEBI's numbered questions in the same
    order, so each row is matched to its indicator by position and wording.
+
+   THESE WERE THE 2021 NUMBERS UNTIL 10 SEP 2026. The 2021 format (circular
+   2021/562) numbered several questions differently, and the codes here were
+   transcribed from it. The revision:
+     - promoted water discharge from Principle 6 Leadership 2 to Essential 4,
+       pushing Principle 6's Essential questions to E5-E13;
+     - promoted data breaches from Principle 9 Leadership 5 to Essential 7;
+     - merged the renewable/non-renewable energy split (P6 Leadership 1) into
+       Essential 1, and closed the leadership gaps to L1-L7;
+     - gave POSH complaints its own Principle 5 Essential 7, pushing P5 to E11;
+     - added days of accounts payables (P1-E8), open-ness of business (P1-E9)
+       and job creation in smaller towns (P8-E5);
+     - added green credits as Principle 6 Leadership 8 (circular 2025/42).
+
+   The export carries every one of those questions, in the revised order, so
+   the portal tracked the revision and these codes now match a current filing.
 
 2. GRI DISCLOSURES — from "Linking the GRI Standards and the SEBI BRSR
    Framework", GRI with BSE, 2022.
@@ -21,9 +38,13 @@ That is a deliberate fallback, not an oversight: a row whose indicator could
 not be identified with confidence gets the coarser, still-sourced answer
 rather than a precise-looking guess.
 
-Rows added by the 2023 BRSR Core circular (assurance, and the nine Core
-attributes) have no entry in the 2022 linkage document. They carry an
-indicator code but no indicator-level GRI.
+Rows added by the 2023 revision have no entry in the 2022 linkage document,
+which predates it. They carry an indicator code but no indicator-level GRI.
+
+BECAUSE THE LINKAGE DOCUMENT USES THE 2021 NUMBERING, a GRI entry here cannot
+be checked against its source by code alone. SOURCE_CODE_2021 below gives the
+code each GRI entry appears under in that document, so the transcription
+stays verifiable. It is provenance, not a second numbering scheme.
 """
 
 import re
@@ -80,8 +101,8 @@ INDICATOR_CODES = {
     "Disciplinary Actions": "P1-E5",
     "Complaints of Conflict of Interests": "P1-E6",
     "Action Against Corruption and Conflicts of Interests": "P1-E7",
-    "Accounts Payables Days": "P1-Core",
-    "Openness of business": "P1-Core",
+    "Accounts Payables Days": "P1-E8",
+    "Openness of business": "P1-E9",
     "Awareness Programs for Value Chain Partners": "P1-L1",
     "Mechanism to Avoid Conflict of Interests": "P1-L2",
 
@@ -99,7 +120,7 @@ INDICATOR_CODES = {
     # ---- Principle 3 ----
     "Employees Well-being": "P3-E1a",
     "Workers Well-being": "P3-E1b",
-    "Employees and Workers Well-being Spending": "P3-Core",
+    "Employees and Workers Well-being Spending": "P3-E1c",
     "Retirement Benefits": "P3-E2",
     "Accessibility of Workplaces": "P3-E3",
     "Equal Opportunity at Workplace": "P3-E4",
@@ -132,15 +153,15 @@ INDICATOR_CODES = {
     "Employee Training for Human Rights": "P5-E1",
     "Minimum Wages Paid": "P5-E2",
     "Median Remuneration / Wages": "P5-E3",
-    "Median Remuneration / Wages to Females": "P5-Core",
+    "Median Remuneration / Wages to Females": "P5-E3b",
     "Dedicated Person for Reporting Human Rights Issues": "P5-E4",
     "Grievance Redressal Mechanism for Human Rights Issues": "P5-E5",
     "Employee Complaints": "P5-E6",
-    "Complaints on POSH": "P5-Core",
-    "Preventing Discrimination and Harassment": "P5-E7",
-    "Inclusion of Human Rights in Agreements": "P5-E8",
-    "Assessments of Workplace for Labor Practices": "P5-E9",
-    "Actions Against Adverse Work Conditions": "P5-E10",
+    "Complaints on POSH": "P5-E7",
+    "Preventing Discrimination and Harassment": "P5-E8",
+    "Inclusion of Human Rights in Agreements": "P5-E9",
+    "Assessments of Workplace for Labor Practices": "P5-E10",
+    "Actions Against Adverse Work Conditions": "P5-E11",
     "Addressing Human Rights Grievances": "P5-L1",
     "Scope of Human Rights Due-Diligence": "P5-L2",
     "Workplace Accessibility for the Differently Abled": "P5-L3",
@@ -151,24 +172,24 @@ INDICATOR_CODES = {
     "Energy Consumption": "P6-E1",
     "Projects under Performance, Achieve and Trade": "P6-E2",
     "Water Usage": "P6-E3",
-    "Water Discharge": "P6-L2",
-    "Zero Liquid Discharge Mechanism": "P6-E4",
-    "Air Emissions Other Than GHG": "P6-E5",
-    "Amount of GHG Emission (Scope 1 and 2)": "P6-E6",
-    "GHG Emission Reduction Initiatives": "P6-E7",
-    "Waste Management Assessment": "P6-E8",
-    "Waste Management Strategy": "P6-E9",
-    "Projects Around Ecologically Sensitive Areas": "P6-E10",
-    "Environmental Impact Assessments": "P6-E11",
-    "Compliance with Environmental Regulations": "P6-E12",
-    "Water Stress Management": "P6-L3",
-    "Amount of GHG Emission (Scope 3)": "P6-L4",
-    "Protect Nature and Biodiversity": "P6-L5",
-    "Resource Efficiency and Innovation": "P6-L6",
-    "Disaster Management": "P6-L7",
-    "Value Chain Environment Risk Management": "P6-L8",
-    "Environment Responsible Value Chain Partners": "P6-L9",
-    "Green Credits Generated or Procured": "P6-Core",
+    "Water Discharge": "P6-E4",
+    "Zero Liquid Discharge Mechanism": "P6-E5",
+    "Air Emissions Other Than GHG": "P6-E6",
+    "Amount of GHG Emission (Scope 1 and 2)": "P6-E7",
+    "GHG Emission Reduction Initiatives": "P6-E8",
+    "Waste Management Assessment": "P6-E9",
+    "Waste Management Strategy": "P6-E10",
+    "Projects Around Ecologically Sensitive Areas": "P6-E11",
+    "Environmental Impact Assessments": "P6-E12",
+    "Compliance with Environmental Regulations": "P6-E13",
+    "Water Stress Management": "P6-L1",
+    "Amount of GHG Emission (Scope 3)": "P6-L2",
+    "Protect Nature and Biodiversity": "P6-L3",
+    "Resource Efficiency and Innovation": "P6-L4",
+    "Disaster Management": "P6-L5",
+    "Value Chain Environment Risk Management": "P6-L6",
+    "Environment Responsible Value Chain Partners": "P6-L7",
+    "Green Credits Generated or Procured": "P6-L8",
 
     # ---- Principle 7 ----
     "Affiliations with Trade and Industry Chambers": "P7-E1",
@@ -180,7 +201,7 @@ INDICATOR_CODES = {
     "Rehabilitation and Resettlement": "P8-E2",
     "Community Grievance Redressal Mechanism": "P8-E3",
     "Local Sourcing and Community Support": "P8-E4",
-    "Wages Paid for Job Creation": "P8-Core",
+    "Wages Paid for Job Creation": "P8-E5",
     "Actions Based on Social Impact Assessments": "P8-L1",
     "CSR Activities": "P8-L2",
     "Community Support Through Sourcing of Materials": "P8-L3",
@@ -195,7 +216,7 @@ INDICATOR_CODES = {
     "Product Safety Recalls": "P9-E4",
     "Cyber Security and Data Privacy Policy": "P9-E5",
     "Cyber Security Breach and Corrective Action": "P9-E6",
-    "Data Breaches": "P9-L5",
+    "Data Breaches": "P9-E7",
     "Product Details": "P9-L1",
     "Customer Education and Awareness": "P9-L2",
     "Customer Communication": "P9-L3",
@@ -288,9 +309,9 @@ GRI_BY_INDICATOR = {
     "P5-E4": "GRI 2-13-a-i-ii",
     "P5-E5": "GRI 2-25-b, 2-25-d, 2-25-e",
     "P5-E6": "GRI 406-1-a, GRI 2-25-e",
-    "P5-E7": "GRI 2-25-e",
-    "P5-E8": "GRI 2-23-a-iv, 2-23-e, 2-23-f, 2-24-a-iii, GRI 414",
-    "P5-E10": "GRI 3-3-d-i-ii",
+    "P5-E8": "GRI 2-25-e",
+    "P5-E9": "GRI 2-23-a-iv, 2-23-e, 2-23-f, 2-24-a-iii, GRI 414",
+    "P5-E11": "GRI 3-3-d-i-ii",
     "P5-L1": "GRI 2-25-b, 2-25-e, GRI 3-3-d-i-ii",
     "P5-L2": "GRI 3-1-a-i, 3-3-a, 3-3-c, 3-3-d",
     "P5-L4": "GRI 414-1-a, 414-2-a",
@@ -300,23 +321,22 @@ GRI_BY_INDICATOR = {
     "P6-E1":  "GRI 302-1-a, 302-1-b, 302-1-c-i, 302-1-e, 302-3-a",
     "P6-E2":  "GRI 3-3, GRI 302",
     "P6-E3":  "GRI 303-3-a-i-v, 303-5-a, 303-1-a, 303-2-a",
-    "P6-E5":  "GRI 305-7-a-i-vii",
-    "P6-E6":  "GRI 305-1-a, 305-1-b, 305-2-a, 305-2-b, 305-2-c, 305-4-a, 305-4-b, 305-4-c",
-    "P6-E7":  "GRI 305-5-a, 305-5-b, 305-5-c, 305-5-d",
-    "P6-E8":  "GRI 306-3-a, 306-4-a, 306-4-b-i-iii, 306-4-c-i-iii, 306-5-a, 306-5-b-i-iii, 306-5-c-i-iv",
-    "P6-E9":  "GRI 306-2-a, GRI 3-3-c, 3-3-d-i-ii",
-    "P6-E10": "GRI 304-1-a-i-v",
-    "P6-E11": "GRI 304, GRI 413-1-a-ii, GRI 303-1-a",
-    "P6-E12": "GRI 2-27-a-i-ii, 2-27-b-i-ii",
-    "P6-L1":  "GRI 302-1-a, 302-1-b, 302-1-c-i, 302-1-e",
-    "P6-L2":  "GRI 303-4-a-i-iv",
-    "P6-L3":  "GRI 303-3-b-i-iv, 303-4-a-i-ii",
-    "P6-L4":  "GRI 305-3-a, 305-3-b, 305-4-a, 305-4-b, 305-4-c",
-    "P6-L5":  "GRI 304-2-a-i-vi, 304-2-b-i-iv, 304-3-a",
-    "P6-L6":  "GRI 3-3, GRI 301, 302, 303, 304, 305, 306",
-    "P6-L7":  "GRI 2-28-a",
-    "P6-L8":  "GRI 308-2-c, 308-2-d",
-    "P6-L9":  "GRI 308-1-a, 308-2-a",
+    "P6-E6":  "GRI 305-7-a-i-vii",
+    "P6-E7":  "GRI 305-1-a, 305-1-b, 305-2-a, 305-2-b, 305-2-c, 305-4-a, 305-4-b, 305-4-c",
+    "P6-E8":  "GRI 305-5-a, 305-5-b, 305-5-c, 305-5-d",
+    "P6-E9":  "GRI 306-3-a, 306-4-a, 306-4-b-i-iii, 306-4-c-i-iii, 306-5-a, 306-5-b-i-iii, 306-5-c-i-iv",
+    "P6-E10": "GRI 306-2-a, GRI 3-3-c, 3-3-d-i-ii",
+    "P6-E11": "GRI 304-1-a-i-v",
+    "P6-E12": "GRI 304, GRI 413-1-a-ii, GRI 303-1-a",
+    "P6-E13": "GRI 2-27-a-i-ii, 2-27-b-i-ii",
+    "P6-E4":  "GRI 303-4-a-i-iv",
+    "P6-L1":  "GRI 303-3-b-i-iv, 303-4-a-i-ii",
+    "P6-L2":  "GRI 305-3-a, 305-3-b, 305-4-a, 305-4-b, 305-4-c",
+    "P6-L3":  "GRI 304-2-a-i-vi, 304-2-b-i-iv, 304-3-a",
+    "P6-L4":  "GRI 3-3, GRI 301, 302, 303, 304, 305, 306",
+    "P6-L5":  "GRI 2-28-a",
+    "P6-L6":  "GRI 308-2-c, 308-2-d",
+    "P6-L7":  "GRI 308-1-a, 308-2-a",
 
     # Principle 7
     "P7-E2": "GRI 3-3, GRI 206",
@@ -342,7 +362,7 @@ GRI_BY_INDICATOR = {
     "P9-L1": "GRI 2-6-b-i",
     "P9-L2": "GRI 3-3, GRI 417",
     "P9-L4": "GRI 417-1-a-i-v, 417-1-b",
-    "P9-L5": "GRI 418-1-a",
+    "P9-E7": "GRI 418-1-a",
 }
 
 INDICATOR_CODES = {re.sub(r"\s+", " ", k.replace("\u00a0", " ")).strip(): v
@@ -380,6 +400,32 @@ INDICATOR_CODES = {re.sub(r"\s+", " ", k.replace("\u00a0", " ")).strip(): v
 # sourced BRSR and GRI tags. Do not promote them to verified without a real
 # crosswalk.
 
+
+# Where each remapped GRI entry appears in the 2022 GRI-BSE linkage document,
+# which uses the 2021 BRSR numbering. Needed to check the transcription against
+# its source; nothing reads it at runtime.
+SOURCE_CODE_2021 = {
+    "P5-E8":  "P5-E7",
+    "P5-E9":  "P5-E8",
+    "P5-E11": "P5-E10",
+    "P6-E4":  "P6-L2",
+    "P6-E6":  "P6-E5",
+    "P6-E7":  "P6-E6",
+    "P6-E8":  "P6-E7",
+    "P6-E9":  "P6-E8",
+    "P6-E10": "P6-E9",
+    "P6-E11": "P6-E10",
+    "P6-E12": "P6-E11",
+    "P6-E13": "P6-E12",
+    "P6-L1":  "P6-L3",
+    "P6-L2":  "P6-L4",
+    "P6-L3":  "P6-L5",
+    "P6-L4":  "P6-L6",
+    "P6-L5":  "P6-L7",
+    "P6-L6":  "P6-L8",
+    "P6-L7":  "P6-L9",
+    "P9-E7":  "P9-L5",
+}
 IFC_BY_GRI_SERIES = {
     # Environmental — GRI 300s
     "301": "PS3",   # Materials

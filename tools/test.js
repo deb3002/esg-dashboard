@@ -404,6 +404,12 @@ check("every BRSR row carries an indicator code",
 
 // spot-checks against SEBI's numbered format
 check("Energy Consumption is P6-E1", /P6-E1/.test(fw("Energy Consumption", "BRSR").detail), true);
+// NOTE: these two read the generated data file, which still carries the 2021
+// numbering. tools/brsr_indicators.py was renumbered to SEBI's revised format
+// on 10 Sep 2026, but data/disclosures.js has not been regenerated since --
+// that needs ESGReport.xls plus openpyxl and LibreOffice. When it is
+// regenerated, "Scope 1 and 2" becomes P6-E7 and these two must be updated
+// with it. Water Usage stays P6-E3; the revision did not move it.
 check("Water Usage is P6-E3", /P6-E3/.test(fw("Water Usage", "BRSR").detail), true);
 check("Scope 1 and 2 is P6-E6",
       /P6-E6/.test(fw("Amount of GHG Emission (Scope 1 and 2)", "BRSR").detail), true);

@@ -8,6 +8,43 @@ Every change to this project, newest first, in plain language.
 
 ---
 
+## 10 Sep 2026 (last) — indicator codes renumbered to the format in force
+
+**This fixes a real defect in `brsrapp`, and is a pending change here.**
+
+`tools/brsr_indicators.py` is shared between the two repositories. Its
+indicator codes were transcribed from the 2021 BRSR format; SEBI revised the
+numbering for disclosures from FY 2023-24 onwards. In `brsrapp` that was doing
+visible damage — it reads a question number off the filing, so its codes follow
+the revised numbering, and looking those up in a table keyed on the 2021
+numbering returned the neighbouring question's GRI standard. GHG Scope 1 and 2
+was tagged as emission *reduction*; data breaches got no tag at all.
+
+**The open question about which numbering to use is settled: the revised one.**
+The Churchgate export carries every question the revision added — water
+discharge fourth under Principle 6, accounts payables days and open-ness under
+Principle 1, job creation under Principle 8, data breaches under Principle 9 —
+in the revised order. The portal tracked the revision, so nothing needs the
+2021 numbering and no versioning is required.
+
+Twenty-nine codes moved. Water discharge and data breaches were promoted from
+leadership to essential indicators; seven rows that carried a `-Core`
+placeholder got their real numbers; Principle 6 essentials shifted to E5-E13
+and its leadership indicators closed up to L1-L8.
+
+`SOURCE_CODE_2021` records where each remapped GRI entry appears in the 2022
+GRI-BSE linkage document, which still uses the old numbering. Without it that
+transcription could no longer be checked against its source.
+
+**What is outstanding here.** `data/disclosures.js` is generated and has *not*
+been regenerated, so this page still shows the old codes. Regenerating needs
+`ESGReport.xls` plus `openpyxl` and LibreOffice, neither of which is installed
+on this machine. Until then the mapping table and the data file disagree: the
+table is right, the data is stale. Two checks in `tools/test.js` assert the old
+codes and carry a note saying so; they must flip when the data is regenerated.
+
+---
+
 ## 10 Sep 2026 (later still) — SEBI's BRSR documents read from source
 
 **Nothing in the viewer changed.** The spec did, to revision 15.
