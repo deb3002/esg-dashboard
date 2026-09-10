@@ -8,6 +8,51 @@ Every change to this project, newest first, in plain language.
 
 ---
 
+## 10 Sep 2026 (later still) — SEBI's BRSR documents read from source
+
+**Nothing in the viewer changed.** The spec did, to revision 15.
+
+Until now the BRSR framework tagging rested on two documents — the 2021 BRSR
+format and the 2022 GRI linkage — and on a reasonable assumption about a third,
+BRSR Core. The primary documents were read directly for the first time: the
+**LODR Master Circular as updated 30 January 2026** (the consolidated text in
+force), the **BRSR Core format**, the **ISF industry standard** that listed
+entities must follow from FY 2024-25, and the **BRSR Guidance Note**.
+
+**The finding that matters: SEBI revised the BRSR format for disclosures from FY
+2023-24 onwards, and this project codes against the 2021 format.** The revision
+inserted a new question under Principle 6 (water discharged), which pushes every
+later code in that principle one number out; added two entirely new Principle 1
+questions, days of accounts payables and open-ness of business; added job
+creation in smaller towns under Principle 8; and split what the 2021 format
+treated as one Principle 9 question into two. Principle 3 is unaffected.
+
+**That is not automatically a defect here.** This build's source is the
+Churchgate portal's export, whose subfactor titles follow the 2021 ordering, and
+lookup is by title rather than by number — so the content behind each code is
+right. What is now an open question is whether a code shown beside a row should
+cite the numbering the portal used or the numbering a current filing uses. It
+matters more in `brsrapp`, which reads current filings directly, and
+`tools/brsr_indicators.py` is shared between them. **Decide it once, for both.**
+
+Two smaller things were also unsourced and are now written down:
+
+- **The nine BRSR Core attributes are named**, with the BRSR question each draws
+  from. The spec previously said the 14 Core-tagged rows "map cleanly" onto them
+  without saying what they were — and those 14 rows are tagged from a portal
+  keyword, not derived from SEBI's Core format. The spec now says so plainly.
+- **There are two intensity denominators.** The BRSR's own ratios are per rupee
+  of turnover; BRSR Core adds ratios on PPP-adjusted revenue and on output.
+  A compliant report carries both. Anything that recomputes an intensity has to
+  know which it is looking at, or it will contradict every company that followed
+  the rules.
+
+The detail — every Core KPI, SEBI's published formula for each, and the
+computation rules — is in `phase4-assurance-brief.md` in `brsrapp` rather than
+duplicated here.
+
+---
+
 ## 10 Sep 2026 (later) — the extraction app moved to its own repository
 
 `brsrapp` — <https://github.com/deb3002/brsrapp>, private — is now the home of

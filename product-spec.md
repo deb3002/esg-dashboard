@@ -1,6 +1,12 @@
 # Product Spec — ESG Disclosure Profile Viewer (Tier 1 MVP)
 
-**Revision 14 — 10 Sep 2026.** Current. Phase 1 is built, demonstrated and unchanged, and this spec describes it. **The BRSR extraction app has moved to its own repository** — [`brsrapp`](https://github.com/deb3002/brsrapp), private — and no longer lives here. See **Phase 3 status** below for what that changes about this spec, which is almost nothing.
+**Revision 15 — 10 Sep 2026.** Current. Phase 1 is built, demonstrated and unchanged, and this spec describes it. **The BRSR extraction app has moved to its own repository** — [`brsrapp`](https://github.com/deb3002/brsrapp), private — and no longer lives here. See **Phase 3 status** below for what that changes about this spec, which is almost nothing.
+
+**What revision 15 changed.** Nothing was built or altered in the viewer. SEBI's BRSR documents were read from source for the first time — the consolidated LODR Master Circular, the BRSR Core format, the industry standard and the guidance note — and three things in this spec were found to be under-stated or unsourced:
+
+- **SEBI revised the BRSR format for disclosures from FY 2023-24 onwards.** The indicator codes here are transcribed from the 2021 format, which the revision renumbered and extended. See *BRSR indicator codes* — this is now an open question, not a settled fact.
+- **The nine BRSR Core attributes are now named and sourced**, along with the BRSR question each maps to. The spec previously asserted that the 14 Core rows "map cleanly" onto them without saying what they are.
+- **The two intensity denominators are recorded** — BRSR's own ratios are per rupee of turnover; BRSR Core adds ratios on PPP-adjusted revenue. They are not interchangeable.
 
 **Full change history, with the reasoning behind each decision, is in `CHANGELOG.md`.** It was moved out of this file: eleven stacked revision notes had grown longer than some of the sections they described.
 
@@ -28,6 +34,12 @@ What it establishes, and what it does not:
   known-correct answers. Until that number exists, the review model — whether
   a client can check their own profile or whether Debraj must — stays open.
   Nothing blocks the measurement.
+
+**A Phase 4 has been proposed but not started.** `phase4-assurance-brief.md`
+in `brsrapp` sets out a second use for the same extraction — checking whether
+the figures in a report hold together, rather than presenting them — for use
+in assurance engagements. It is a proposal, it is gated on the accuracy
+measurement above, and it changes nothing in this spec.
 
 Four files are shared between the two repositories and cannot be
 deduplicated: `index.html`, `styles.css`, `app.js` and
@@ -362,7 +374,7 @@ A fourth filter, alongside Theme and Keyword. **Frameworks are tags, not a parti
 | Framework | Rows | Provenance |
 |---|---|---|
 | BRSR | 149 | `BRSR` keyword in the source export |
-| BRSR Core | 14 | `SEBI: Essential Core` keyword; maps cleanly onto SEBI's nine BRSR Core attributes |
+| BRSR Core | 14 | `SEBI: Essential Core` keyword, assigned by the portal — **not** derived from SEBI's Core format. See *BRSR Core* below |
 | GRI | 149 | Published GRI–SEBI BRSR linkage document — 114 at indicator level, 35 at principle level |
 | IFC | 49 | **Derived by alignment**, chained via GRI — not a published mapping |
 
@@ -387,6 +399,21 @@ Tests assert that named admin rows carry no IFC tag and that no IFC tag is deriv
 `tools/brsr_indicators.py` holds two transcriptions, deliberately kept apart:
 
 - `INDICATOR_CODES` — subfactor title to BRSR indicator, from **SEBI's BRSR format, Annexure I to circular SEBI/HO/CFD/CMD-2/P/CIR/2021/562 (10 May 2021)**. The portal's titles follow SEBI's numbered questions in order, so matching is by title and position. All 149 rows are coded.
+
+  **This is the 2021 format, and SEBI revised it for disclosures from FY 2023-24 onwards** (circular 2023/122; consolidated at Annexure 16 of the LODR Master Circular, last updated 30 January 2026). The revision inserted and added questions, so the numbering diverges:
+
+  | Principle | How the 2021 numbering differs from the current format |
+  |---|---|
+  | 1 | Questions 1-7 agree. **Q8 (days of accounts payables) and Q9 (open-ness of business) do not exist in the 2021 format** |
+  | 3 | Agrees throughout, Q1-Q15 |
+  | 5 | Q1-Q7 agree. One number low from Q8 onwards |
+  | 6 | Q1-Q3 agree. A new **Q4, water discharged**, was inserted, so 2021 codes are one number low from there to Q13. What this spec calls `P6-E6`, GHG emissions, is question 7 in a current filing |
+  | 8 | Q1-Q4 agree. **Q5 (job creation in smaller towns) does not exist in the 2021 format** |
+  | 9 | Q1-Q5 agree. The 2021 format conflates the current Q6 and **Q7 (data breaches)** |
+
+  **This is not necessarily wrong here.** The source is the Churchgate portal's own taxonomy, whose titles follow the 2021 ordering, and matching is by title rather than by number — so the content behind each code is right. What is unresolved is whether a code printed beside a row should cite the numbering the *portal* used or the numbering a *current filing* uses. See Open Questions.
+
+  `tools/brsr_indicators.py` is one of the four files shared with `brsrapp`, so any correction has to land in both.
 - `GRI_BY_INDICATOR` — indicator to GRI disclosures, from the linkage document's summary table.
 
 Nine rows carry `-Core` codes (`P6-Core`, `P5-Core`, `P8-Core`): BRSR Core attributes from SEBI's 2023 circular, postdating the 2021 numbering and the 2022 linkage document.
@@ -394,6 +421,30 @@ Nine rows carry `-Core` codes (`P6-Core`, `P5-Core`, `P8-Core`): BRSR Core attri
 **Indicator lookup is scoped to BRSR categories.** Subfactor titles are not unique — "Energy Consumption" appears under both Environment and Principle 6 — and an unscoped lookup silently tagged non-BRSR rows. A test asserts no framework tag appears outside the BRSR sections.
 
 Titles containing non-breaking spaces must be normalised before lookup; two rows were silently missing their codes until that was handled.
+
+### BRSR Core
+
+The 14 rows carrying the `BRSR Core` tag are tagged from the portal's own `SEBI: Essential Core` keyword. That is the honest provenance: **the tag is inherited, not derived.** Nothing in this build reads SEBI's Core format and works out which rows fall inside it.
+
+Recorded here so the claim can be checked rather than assumed. BRSR Core is a subset of the BRSR — KPIs under **nine ESG attributes**, each cross-referenced by SEBI to the BRSR question it is drawn from. From **Annexure 17A of the LODR Master Circular** (originally Annexure I to circular 2023/122):
+
+| # | Attribute | Drawn from |
+|---|---|---|
+| 1 | Green-house gas footprint | Principle 6, Q7 |
+| 2 | Water footprint | Principle 6, Q3 and Q4 |
+| 3 | Energy footprint | Principle 6, Q1 |
+| 4 | Embracing circularity — waste management | Principle 6, Q9 |
+| 5 | Enhancing employee wellbeing and safety | Principle 3, Q1(c) and Q11 |
+| 6 | Enabling gender diversity in business | Principle 5, Q3(b) and Q7 |
+| 7 | Enabling inclusive development | Principle 8, Q4 and Q5 |
+| 8 | Fairness in engaging with customers and suppliers | Principle 9, Q7 and Principle 1, Q8 |
+| 9 | Open-ness of business | Principle 1, Q9 |
+
+Those question numbers are the **current** format's, not the 2021 numbering this build codes against — see the divergence table above. Four of them (P1 Q8, P1 Q9, P8 Q5 and the Q6/Q7 split under P9) have no equivalent in the 2021 format at all, so the 14 tagged rows here cannot be reconciled against this list without resolving that first.
+
+**Two intensity denominators exist and are not interchangeable.** The BRSR's own intensity ratios are per **rupee of turnover** (BRSR Guidance Note, Annexure 17). BRSR Core additionally requires intensities on **revenue adjusted for Purchasing Power Parity**, and on output — production for manufacturers, full-time equivalents for service companies (ISF industry standard, mandatory FY 2024-25 onwards). A compliant report carries both families. Anything in this project that recomputes or compares an intensity must know which one it is looking at.
+
+**Where the detail lives.** The nine attributes' KPIs, SEBI's published formula for each, and the computation rules from the industry standard and guidance note are set out in `phase4-assurance-brief.md` in `brsrapp`. They are not needed by this build and are not duplicated here.
 
 ### The GRI mapping
 
@@ -553,6 +604,7 @@ Raised in the GTM meeting of 21 Aug 2026. Recorded so nothing is lost and nothin
 2. **Residual proper nouns.** The converter's review list currently holds around 30 entries. The owner should mark which are identifying; they then go into `THIRD_PARTY_ORGS` or `LITERALS`.
 3. **`updated` date** is `17 Jul 2026`, carried from the reference page because the export has no date field. Replace when a better source exists.
 4. **Number grouping** currently uses international thousands separators (14,629,136.19). If the audience is primarily domestic, Indian grouping (1,46,29,136.19) may read better. One-line change.
-5. **Visual verification is outstanding.** Filter logic, search and CSV export are tested against the real 663 rows. The rendered page has not been checked in a browser. The sticky filter bar's offset above the sticky table header is the most likely thing to be wrong.
+5. **Which BRSR numbering should a code cite?** This build codes against the 2021 format, matching the portal's taxonomy; a filing from FY 2023-24 onwards uses SEBI's revised numbering, in which several of those codes point at a different question. Three options: leave it (correct for this export, misleading against a current report), renumber (correct against filings, wrong against the export), or carry a format version on each code. `tools/brsr_indicators.py` is shared with `brsrapp`, where the same decision is open and matters more — that app reads current filings directly. **Decide it once, for both.**
+6. **Visual verification is outstanding.** Filter logic, search and CSV export are tested against the real 663 rows. The rendered page has not been checked in a browser. The sticky filter bar's offset above the sticky table header is the most likely thing to be wrong.
 
 If any instruction here conflicts with something the owner says, **the owner wins** — but flag the conflict against the Left Out list first, since that list is the scope boundary.
